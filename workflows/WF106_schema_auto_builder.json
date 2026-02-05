@@ -1,0 +1,107 @@
+{
+  "id": "TRPGWj3GZTnEvk1R",
+  "name": "WF106 - Schema Auto-Builder",
+  "description": "Receives JSON schema blueprints and auto-deploys SQL to Supabase",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "schema-builder",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// WF106: Schema Auto-Builder - Generate SQL from JSON\nconst schema = $input.first().json.body;\n\n// Validate required fields\nif (!schema.version || !schema.description || !schema.tables) {\n  throw new Error('Missing required fields: version, description, tables');\n}\n\n// Helper: Convert JSON column definition to SQL\nfunction columnToSQL(col) {\n  let sql = `${col.name} ${col.type}`;\n  if (col.primary_key) sql += ' PRIMARY KEY';\n  if (col.default) sql += ` DEFAULT ${col.default}`;\n  if (col.not_null) sql += ' NOT NULL';\n  if (col.unique) sql += ' UNIQUE';\n  return sql;\n}\n\n// Generate CREATE TABLE statements\nconst sqlStatements = [];\nconst tableNames = [];\n\nfor (const table of schema.tables) {\n  tableNames.push(table.name);\n  const columns = table.columns.map(col => columnToSQL(col)).join(',\\n    ');\n  let sql = `CREATE TABLE IF NOT EXISTS public.${table.name} (\\n    ${columns}`;\n  \n  if (table.indexes && table.indexes.length > 0) {\n    sql += '\\n);\\n\\n';\n    for (const idx of table.indexes) {\n      sql += `CREATE INDEX IF NOT EXISTS ${idx.name} ON public.${table.name}(${idx.columns.join(', ')});\\n`;\n    }\n  } else {\n    sql += '\\n);';\n  }\n  sqlStatements.push(sql);\n}\n\nconst fullSQL = sqlStatements.join('\\n\\n');\nconst checksum = require('crypto').createHash('sha256').update(fullSQL).digest('hex');\n\nreturn {\n  version: schema.version,\n  description: schema.description,\n  sql: fullSQL,\n  checksum: checksum,\n  table_count: schema.tables.length,\n  table_names: tableNames.join(', '),\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "generate-sql",
+      "name": "Generate SQL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql }}",
+        "options": {}
+      },
+      "id": "execute-sql",
+      "name": "Execute SQL",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [680, 300],
+      "credentials": {
+        "postgres": {
+          "name": "Supabase Production"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": "public",
+        "table": "schema_migrations",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "version": "={{ $('Generate SQL').item.json.version }}",
+            "description": "={{ $('Generate SQL').item.json.description }}",
+            "applied_by": "WF106",
+            "checksum": "={{ $('Generate SQL').item.json.checksum }}",
+            "status": "success",
+            "sql_script": "={{ $('Generate SQL').item.json.sql }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-migration",
+      "name": "Log Migration",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [900, 300],
+      "credentials": {
+        "postgres": {
+          "name": "Supabase Production"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"version\": $('Generate SQL').item.json.version, \"description\": $('Generate SQL').item.json.description, \"tables_created\": $('Generate SQL').item.json.table_count, \"table_names\": $('Generate SQL').item.json.table_names, \"checksum\": $('Generate SQL').item.json.checksum, \"timestamp\": $('Generate SQL').item.json.timestamp } }}",
+        "options": {}
+      },
+      "id": "success-response",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{"node": "Generate SQL", "type": "main", "index": 0}]]
+    },
+    "Generate SQL": {
+      "main": [[{"node": "Execute SQL", "type": "main", "index": 0}]]
+    },
+    "Execute SQL": {
+      "main": [[{"node": "Log Migration", "type": "main", "index": 0}]]
+    },
+    "Log Migration": {
+      "main": [[{"node": "Success Response", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "webhook_url": "https://valiansystems.app.n8n.cloud/webhook/schema-builder"
+}

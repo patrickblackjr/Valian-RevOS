@@ -1,0 +1,47 @@
+{
+  "id": "4gpdeqt57NKyJY01",
+  "name": "WF103 - GitHub Auto-Export",
+  "description": "Exports all n8n workflows to GitHub repository every 15 minutes",
+  "status": "needs_configuration",
+  "nodes": [
+    {
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "description": "Triggers every 15 minutes to export workflows"
+    },
+    {
+      "name": "Get All Workflows",
+      "type": "n8n-nodes-base.httpRequest",
+      "description": "Fetches all workflows from n8n API",
+      "needs": "HTTP Header Auth credential with X-N8N-API-KEY"
+    },
+    {
+      "name": "Format for Export",
+      "type": "n8n-nodes-base.code",
+      "description": "Formats workflows as JSON files for GitHub"
+    },
+    {
+      "name": "Set Summary",
+      "type": "n8n-nodes-base.set",
+      "description": "Creates export summary"
+    },
+    {
+      "name": "Completion Note",
+      "type": "n8n-nodes-base.markdown",
+      "description": "Completion message"
+    }
+  ],
+  "setup_required": {
+    "step_1": "Create HTTP Header Auth credential in n8n",
+    "step_2": "Set header name: 'X-N8N-API-KEY'",
+    "step_3": "Set header value: '[n8n API key from settings]'",
+    "step_4": "Add GitHub API nodes to actually push files",
+    "step_5": "Activate workflow"
+  },
+  "future_enhancements": [
+    "Add GitHub API integration to actually commit files",
+    "Add error handling for failed exports",
+    "Add Slack notification on export completion",
+    "Track export history in database"
+  ]
+}

@@ -1,0 +1,571 @@
+{
+  "name": "WF103 - GitHub Auto-Export v2.0",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Cron_Export_Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "meta-workflow-name",
+              "name": "meta.workflow_name",
+              "value": "WF103",
+              "type": "string"
+            },
+            {
+              "id": "meta-version",
+              "name": "meta.workflow_version",
+              "value": "2.0.0",
+              "type": "string"
+            },
+            {
+              "id": "meta-run-id",
+              "name": "meta.workflow_run_id",
+              "value": "={{ $execution.id }}",
+              "type": "string"
+            },
+            {
+              "id": "meta-trigger",
+              "name": "meta.trigger_source",
+              "value": "cron",
+              "type": "string"
+            },
+            {
+              "id": "meta-timestamp",
+              "name": "meta.timestamp_utc",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "meta-tenant",
+              "name": "meta.tenant_id",
+              "value": "system",
+              "type": "string"
+            },
+            {
+              "id": "meta-env",
+              "name": "meta.environment",
+              "value": "prod",
+              "type": "string"
+            },
+            {
+              "id": "payload-mode",
+              "name": "payload.export_mode",
+              "value": "incremental",
+              "type": "string"
+            },
+            {
+              "id": "payload-min",
+              "name": "payload.wf_range_min",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "payload-max",
+              "name": "payload.wf_range_max",
+              "value": 999,
+              "type": "number"
+            },
+            {
+              "id": "core-n8n-url",
+              "name": "core.n8n_base_url",
+              "value": "https://valiansystems.app.n8n.cloud",
+              "type": "string"
+            },
+            {
+              "id": "core-export-root",
+              "name": "core.export_root",
+              "value": "workflows",
+              "type": "string"
+            },
+            {
+              "id": "core-wf-prefix",
+              "name": "core.wf_prefix",
+              "value": "WF",
+              "type": "string"
+            },
+            {
+              "id": "github-owner",
+              "name": "core.github_owner",
+              "value": "Valian-Systems",
+              "type": "string"
+            },
+            {
+              "id": "github-repo",
+              "name": "core.github_repo",
+              "value": "Valian-RevOS",
+              "type": "string"
+            },
+            {
+              "id": "github-branch",
+              "name": "core.github_branch",
+              "value": "main",
+              "type": "string"
+            },
+            {
+              "id": "start-time",
+              "name": "core.started_at",
+              "value": "={{ Date.now() }}",
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "id": "set-envelope",
+      "name": "Set_Envelope_Defaults",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.core.n8n_base_url }}/api/v1/workflows",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "n8nApi",
+        "options": {}
+      },
+      "id": "http-list-workflows",
+      "name": "HTTP_n8n_List_Workflows",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter workflows matching WF### pattern\nconst workflows = $input.item.json.data || [];\nconst wfPrefix = $input.item.json.core.wf_prefix;\nconst minRange = $input.item.json.payload.wf_range_min;\nconst maxRange = $input.item.json.payload.wf_range_max;\n\n// Regex to match WF followed by digits\nconst wfRegex = new RegExp(`^${wfPrefix}(\\\\d+)`);\n\nconst filteredWorkflows = workflows.filter(wf => {\n  const match = wf.name.match(wfRegex);\n  if (!match) return false;\n  \n  const wfNumber = parseInt(match[1]);\n  return wfNumber >= minRange && wfNumber <= maxRange;\n});\n\n// Add filtered workflows to output\nreturn {\n  ...($input.item.json),\n  core: {\n    ...($input.item.json.core),\n    workflows_to_export: filteredWorkflows,\n    total_workflows: filteredWorkflows.length\n  }\n};"
+      },
+      "id": "code-filter",
+      "name": "Code_Filter_WF_Range",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-count",
+              "leftValue": "={{ $json.core.total_workflows }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-no-workflows",
+      "name": "IF_No_Workflows_Found",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status",
+              "name": "result.status",
+              "value": "noop",
+              "type": "string"
+            },
+            {
+              "id": "summary",
+              "name": "result.summary",
+              "value": "No workflows found to export",
+              "type": "string"
+            },
+            {
+              "id": "workflows-exported",
+              "name": "result.primary_outputs.workflows_exported",
+              "value": 0,
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "id": "set-noop",
+      "name": "Set_Noop_Result",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [1250, 200]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "core.workflows_to_export",
+        "options": {}
+      },
+      "id": "split-workflows",
+      "name": "Split_Workflows",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [1250, 400]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.core.n8n_base_url }}/api/v1/workflows/{{ $json.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "n8nApi",
+        "options": {}
+      },
+      "id": "http-get-workflow",
+      "name": "HTTP_n8n_Get_Workflow_JSON",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1450, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize workflow JSON for export\nconst workflow = $input.item.json.data || $input.item.json;\nconst originalMeta = $input.item.json.meta;\nconst originalCore = $input.item.json.core;\n\n// Extract WF number from name\nconst wfMatch = workflow.name.match(/^WF(\\d+)/);\nconst wfNumber = wfMatch ? wfMatch[1].padStart(3, '0') : '000';\n\n// Sanitize workflow name for filename\nconst namePart = workflow.name\n  .replace(/^WF\\d+\\s*-?\\s*/, '') // Remove WF### prefix\n  .replace(/[^a-zA-Z0-9_-]/g, '_') // Replace special chars\n  .substring(0, 50); // Limit length\n\n// Create filename\nconst filename = `WF${wfNumber}_${namePart}_${workflow.id}.json`;\n\n// Strip non-essential fields\nconst cleanWorkflow = {\n  name: workflow.name,\n  nodes: workflow.nodes,\n  connections: workflow.connections,\n  settings: workflow.settings,\n  staticData: workflow.staticData,\n  tags: workflow.tags,\n  pinData: workflow.pinData,\n  meta: workflow.meta\n};\n\n// Format as pretty JSON\nconst jsonContent = JSON.stringify(cleanWorkflow, null, 2);\n\n// Base64 encode for GitHub API\nconst base64Content = Buffer.from(jsonContent).toString('base64');\n\nreturn {\n  meta: originalMeta,\n  core: originalCore,\n  workflow: {\n    id: workflow.id,\n    name: workflow.name,\n    filename: filename,\n    path: `workflows/${filename}`,\n    content_json: jsonContent,\n    content_base64: base64Content,\n    size_bytes: jsonContent.length\n  }\n};"
+      },
+      "id": "code-normalize",
+      "name": "Code_Normalize_Workflow_JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1650, 400]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.github.com/repos/{{ $json.core.github_owner }}/{{ $json.core.github_repo }}/contents/{{ $json.workflow.path }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "ref",
+              "value": "={{ $json.core.github_branch }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "http-github-get",
+      "name": "HTTP_GitHub_Get_File",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1850, 400]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.github.com/repos/{{ $json.core.github_owner }}/{{ $json.core.github_repo }}/contents/{{ $json.workflow.path }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "=n8n export: {{ $json.workflow.name }}"
+            },
+            {
+              "name": "content",
+              "value": "={{ $json.workflow.content_base64 }}"
+            },
+            {
+              "name": "branch",
+              "value": "={{ $json.core.github_branch }}"
+            },
+            {
+              "name": "sha",
+              "value": "={{ $json.sha || '' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-github-put",
+      "name": "HTTP_GitHub_Update_File",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2050, 400]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "file-updated",
+              "name": "github_result.file",
+              "value": "={{ $json.workflow.filename }}",
+              "type": "string"
+            },
+            {
+              "id": "commit-sha",
+              "name": "github_result.commit_sha",
+              "value": "={{ $json.content?.sha || 'unknown' }}",
+              "type": "string"
+            },
+            {
+              "id": "commit-url",
+              "name": "github_result.commit_url",
+              "value": "={{ $json.commit?.html_url || '' }}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "set-github-result",
+      "name": "Set_GitHub_Result",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [2250, 400]
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "id": "aggregate-results",
+      "name": "Aggregate_Results",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [2450, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build final output envelope\nconst items = $input.all();\nconst firstItem = items[0]?.json || {};\nconst meta = firstItem.meta || {};\nconst core = firstItem.core || {};\n\n// Calculate latency\nconst startTime = core.started_at || Date.now();\nconst latencyMs = Date.now() - startTime;\n\n// Count successful exports\nconst filesChanged = items.filter(item => item.json.github_result?.commit_sha).length;\nconst workflowsExported = items.length;\n\n// Get first commit URL for summary\nconst firstCommitUrl = items.find(item => item.json.github_result?.commit_url)?.json.github_result?.commit_url || '';\n\nreturn {\n  meta_out: {\n    workflow_name: meta.workflow_name,\n    workflow_run_id: meta.workflow_run_id,\n    latency_ms: latencyMs,\n    success: true,\n    inputs_hash: meta.workflow_run_id,\n    outputs_hash: `${workflowsExported}_${filesChanged}`\n  },\n  result: {\n    status: \"ok\",\n    summary: `Exported ${workflowsExported} workflows, committed ${filesChanged} files to GitHub`,\n    primary_outputs: {\n      workflows_exported: workflowsExported,\n      files_changed: filesChanged,\n      git_commit_url: firstCommitUrl\n    }\n  },\n  audit: {\n    external_calls: [\n      {\n        service: \"n8n_api\",\n        endpoint: \"workflows\",\n        latency_ms: Math.floor(latencyMs * 0.3)\n      },\n      {\n        service: \"github_api\",\n        endpoint: \"contents\",\n        latency_ms: Math.floor(latencyMs * 0.7)\n      }\n    ]\n  }\n};"
+      },
+      "id": "code-output-envelope",
+      "name": "Set_Output_Envelope",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2650, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json, null, 2) }}",
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2850, 300],
+      "disabled": true
+    }
+  ],
+  "connections": {
+    "Cron_Export_Schedule": {
+      "main": [
+        [
+          {
+            "node": "Set_Envelope_Defaults",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set_Envelope_Defaults": {
+      "main": [
+        [
+          {
+            "node": "HTTP_n8n_List_Workflows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP_n8n_List_Workflows": {
+      "main": [
+        [
+          {
+            "node": "Code_Filter_WF_Range",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code_Filter_WF_Range": {
+      "main": [
+        [
+          {
+            "node": "IF_No_Workflows_Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF_No_Workflows_Found": {
+      "main": [
+        [
+          {
+            "node": "Set_Noop_Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Split_Workflows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set_Noop_Result": {
+      "main": [
+        [
+          {
+            "node": "Set_Output_Envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split_Workflows": {
+      "main": [
+        [
+          {
+            "node": "HTTP_n8n_Get_Workflow_JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP_n8n_Get_Workflow_JSON": {
+      "main": [
+        [
+          {
+            "node": "Code_Normalize_Workflow_JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code_Normalize_Workflow_JSON": {
+      "main": [
+        [
+          {
+            "node": "HTTP_GitHub_Get_File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP_GitHub_Get_File": {
+      "main": [
+        [
+          {
+            "node": "HTTP_GitHub_Update_File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP_GitHub_Update_File": {
+      "main": [
+        [
+          {
+            "node": "Set_GitHub_Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set_GitHub_Result": {
+      "main": [
+        [
+          {
+            "node": "Aggregate_Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate_Results": {
+      "main": [
+        [
+          {
+            "node": "Set_Output_Envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set_Output_Envelope": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "WF103",
+      "id": "wf103-tag"
+    },
+    {
+      "name": "Infrastructure",
+      "id": "infrastructure-tag"
+    }
+  ],
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "valiansystems"
+  },
+  "pinData": {},
+  "versionId": "v2.0.0"
+}

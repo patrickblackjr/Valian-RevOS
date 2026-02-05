@@ -1,0 +1,186 @@
+{
+  "version": "001",
+  "description": "Foundation Schema - 10 core tables for RevOS MVP",
+  "tables": [
+    {
+      "name": "tenants",
+      "columns": [
+        {"name": "id", "type": "UUID", "primary_key": true, "default": "gen_random_uuid()"},
+        {"name": "name", "type": "TEXT", "not_null": true},
+        {"name": "practice_type", "type": "TEXT", "not_null": true},
+        {"name": "phone_number", "type": "TEXT", "unique": true},
+        {"name": "timezone", "type": "TEXT", "not_null": true, "default": "'America/New_York'"},
+        {"name": "subscription_status", "type": "TEXT", "not_null": true, "default": "'active'"},
+        {"name": "settings", "type": "JSONB", "default": "'{}'::jsonb"},
+        {"name": "created_at", "type": "TIMESTAMP WITH TIME ZONE", "not_null": true, "default": "NOW()"},
+        {"name": "updated_at", "type": "TIMESTAMP WITH TIME ZONE", "not_null": true, "default": "NOW()"}
+      ],
+      "indexes": [
+        {"name": "idx_tenants_phone_number", "columns": ["phone_number"]}
+      ]
+    },
+    {
+      "name": "users",
+      "columns": [
+        {"name": "id", "type": "UUID", "primary_key": true, "default": "gen_random_uuid()"},
+        {"name": "tenant_id", "type": "UUID", "not_null": true},
+        {"name": "email", "type": "TEXT", "not_null": true, "unique": true},
+        {"name": "full_name", "type": "TEXT", "not_null": true},
+        {"name": "role", "type": "TEXT", "not_null": true, "default": "'staff'"},
+        {"name": "created_at", "type": "TIMESTAMP WITH TIME ZONE", "not_null": true, "default": "NOW()"},
+        {"name": "updated_at", "type": "TIMESTAMP WITH TIME ZONE", "not_null": true, "default": "NOW()"}
+      ],
+      "indexes": [
+        {"name": "idx_users_tenant_id", "columns": ["tenant_id"]},
+        {"name": "idx_users_email", "columns": ["email"]}
+      ]
+    },
+    {
+      "name": "events",
+      "columns": [
+        {"name": "id", "type": "UUID", "primary_key": true, "default": "gen_random_uuid()"},
+        {"name": "tenant_id", "type": "UUID", "not_null": true},
+        {"name": "event_type", "type": "TEXT", "not_null": true},
+        {"name": "entity_type", "type": "TEXT"},
+        {"name": "entity_id", "type": "UUID"},
+        {"name": "payload", "type": "JSONB", "not_null": true, "default": "'{}'::jsonb"},
+        {"name": "created_at", "type": "TIMESTAMP WITH TIME ZONE", "not_null": true, "default": "NOW()"}
+      ],
+      "indexes": [
+        {"name": "idx_events_tenant_id", "columns": ["tenant_id"]},
+        {"name": "idx_events_event_type", "columns": ["event_type"]},
+        {"name": "idx_events_entity", "columns": ["entity_type", "entity_id"]},
+        {"name": "idx_events_created_at", "columns": ["created_at"]}
+      ]
+    },
+    {
+      "name": "event_metadata",
+      "columns": [
+        {"name": "id", "type": "UUID", "primary_key": true, "default": "gen_random_uuid()"},
+        {"name": "event_id", "type": "UUID", "not_null": true},
+        {"name": "metadata", "type": "JSONB", "not_null": true, "default": "'{}'::jsonb"},
+        {"name": "created_at", "type": "TIMESTAMP WITH TIME ZONE", "not_null": true, "default": "NOW()"}
+      ],
+      "indexes": [
+        {"name": "idx_event_metadata_event_id", "columns": ["event_id"]}
+      ]
+    },
+    {
+      "name": "memories",
+      "columns": [
+        {"name": "id", "type": "UUID", "primary_key": true, "default": "gen_random_uuid()"},
+        {"name": "tenant_id", "type": "UUID", "not_null": true},
+        {"name": "lead_id", "type": "UUID", "not_null": true},
+        {"name": "memory_type", "type": "TEXT", "not_null": true},
+        {"name": "content", "type": "TEXT", "not_null": true},
+        {"name": "source_event_id", "type": "UUID"},
+        {"name": "confidence", "type": "NUMERIC(3,2)", "default": "1.00"},
+        {"name": "created_at", "type": "TIMESTAMP WITH TIME ZONE", "not_null": true, "default": "NOW()"},
+        {"name": "updated_at", "type": "TIMESTAMP WITH TIME ZONE", "not_null": true, "default": "NOW()"}
+      ],
+      "indexes": [
+        {"name": "idx_memories_tenant_id", "columns": ["tenant_id"]},
+        {"name": "idx_memories_lead_id", "columns": ["lead_id"]},
+        {"name": "idx_memories_type", "columns": ["memory_type"]}
+      ]
+    },
+    {
+      "name": "conversation_history",
+      "columns": [
+        {"name": "id", "type": "UUID", "primary_key": true, "default": "gen_random_uuid()"},
+        {"name": "tenant_id", "type": "UUID", "not_null": true},
+        {"name": "lead_id", "type": "UUID", "not_null": true},
+        {"name": "event_id", "type": "UUID", "not_null": true},
+        {"name": "transcript", "type": "TEXT"},
+        {"name": "summary", "type": "TEXT"},
+        {"name": "created_at", "type": "TIMESTAMP WITH TIME ZONE", "not_null": true, "default": "NOW()"}
+      ],
+      "indexes": [
+        {"name": "idx_conversation_history_tenant_id", "columns": ["tenant_id"]},
+        {"name": "idx_conversation_history_lead_id", "columns": ["lead_id"]},
+        {"name": "idx_conversation_history_event_id", "columns": ["event_id"]}
+      ]
+    },
+    {
+      "name": "workflow_executions",
+      "columns": [
+        {"name": "id", "type": "UUID", "primary_key": true, "default": "gen_random_uuid()"},
+        {"name": "tenant_id", "type": "UUID", "not_null": true},
+        {"name": "workflow_name", "type": "TEXT", "not_null": true},
+        {"name": "execution_id", "type": "TEXT", "not_null": true},
+        {"name": "status", "type": "TEXT", "not_null": true},
+        {"name": "duration_ms", "type": "INTEGER"},
+        {"name": "error_message", "type": "TEXT"},
+        {"name": "created_at", "type": "TIMESTAMP WITH TIME ZONE", "not_null": true, "default": "NOW()"}
+      ],
+      "indexes": [
+        {"name": "idx_workflow_executions_tenant_id", "columns": ["tenant_id"]},
+        {"name": "idx_workflow_executions_workflow_name", "columns": ["workflow_name"]},
+        {"name": "idx_workflow_executions_status", "columns": ["status"]}
+      ]
+    },
+    {
+      "name": "appointments",
+      "columns": [
+        {"name": "id", "type": "UUID", "primary_key": true, "default": "gen_random_uuid()"},
+        {"name": "tenant_id", "type": "UUID", "not_null": true},
+        {"name": "lead_id", "type": "UUID", "not_null": true},
+        {"name": "appointment_type", "type": "TEXT", "not_null": true},
+        {"name": "scheduled_at", "type": "TIMESTAMP WITH TIME ZONE", "not_null": true},
+        {"name": "status", "type": "TEXT", "not_null": true, "default": "'pending'"},
+        {"name": "outcome", "type": "TEXT"},
+        {"name": "created_at", "type": "TIMESTAMP WITH TIME ZONE", "not_null": true, "default": "NOW()"},
+        {"name": "updated_at", "type": "TIMESTAMP WITH TIME ZONE", "not_null": true, "default": "NOW()"}
+      ],
+      "indexes": [
+        {"name": "idx_appointments_tenant_id", "columns": ["tenant_id"]},
+        {"name": "idx_appointments_lead_id", "columns": ["lead_id"]},
+        {"name": "idx_appointments_scheduled_at", "columns": ["scheduled_at"]},
+        {"name": "idx_appointments_status", "columns": ["status"]}
+      ]
+    },
+    {
+      "name": "phone_calls",
+      "columns": [
+        {"name": "id", "type": "UUID", "primary_key": true, "default": "gen_random_uuid()"},
+        {"name": "tenant_id", "type": "UUID", "not_null": true},
+        {"name": "lead_id", "type": "UUID"},
+        {"name": "call_sid", "type": "TEXT", "not_null": true, "unique": true},
+        {"name": "direction", "type": "TEXT", "not_null": true},
+        {"name": "from_number", "type": "TEXT", "not_null": true},
+        {"name": "to_number", "type": "TEXT", "not_null": true},
+        {"name": "status", "type": "TEXT", "not_null": true},
+        {"name": "duration_seconds", "type": "INTEGER"},
+        {"name": "recording_url", "type": "TEXT"},
+        {"name": "transcript_url", "type": "TEXT"},
+        {"name": "created_at", "type": "TIMESTAMP WITH TIME ZONE", "not_null": true, "default": "NOW()"}
+      ],
+      "indexes": [
+        {"name": "idx_phone_calls_tenant_id", "columns": ["tenant_id"]},
+        {"name": "idx_phone_calls_lead_id", "columns": ["lead_id"]},
+        {"name": "idx_phone_calls_call_sid", "columns": ["call_sid"]},
+        {"name": "idx_phone_calls_created_at", "columns": ["created_at"]}
+      ]
+    },
+    {
+      "name": "call_sessions",
+      "columns": [
+        {"name": "id", "type": "UUID", "primary_key": true, "default": "gen_random_uuid()"},
+        {"name": "tenant_id", "type": "UUID", "not_null": true},
+        {"name": "phone_call_id", "type": "UUID", "not_null": true},
+        {"name": "lead_id", "type": "UUID"},
+        {"name": "vapi_call_id", "type": "TEXT"},
+        {"name": "outcome", "type": "TEXT"},
+        {"name": "intent", "type": "TEXT"},
+        {"name": "transcript", "type": "TEXT"},
+        {"name": "created_at", "type": "TIMESTAMP WITH TIME ZONE", "not_null": true, "default": "NOW()"},
+        {"name": "updated_at", "type": "TIMESTAMP WITH TIME ZONE", "not_null": true, "default": "NOW()"}
+      ],
+      "indexes": [
+        {"name": "idx_call_sessions_tenant_id", "columns": ["tenant_id"]},
+        {"name": "idx_call_sessions_phone_call_id", "columns": ["phone_call_id"]},
+        {"name": "idx_call_sessions_lead_id", "columns": ["lead_id"]}
+      ]
+    }
+  ]
+}

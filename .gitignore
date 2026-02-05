@@ -1,0 +1,41 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Secrets (never commit)
+credentials.json
+secrets.json
+*-secret.json
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Logs
+logs/
+*.log
+
+# Temp
+tmp/
+temp/
+*.tmp
+
+# Claude Code local settings (keep for reference but don't sync)
+# .claude/
+
+# Build outputs
+dist/
+build/

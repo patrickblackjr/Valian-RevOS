@@ -1,0 +1,839 @@
+{
+  "version": "001",
+  "description": "Foundation Schema - 10 core tables for RevOS Day 1",
+  "tables": [
+    {
+      "name": "tenants",
+      "description": "Practice information and settings",
+      "columns": [
+        {
+          "name": "id",
+          "type": "UUID",
+          "primaryKey": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "notNull": true,
+          "comment": "Practice name (e.g., 'Bright Smile Dental')"
+        },
+        {
+          "name": "phone_number",
+          "type": "TEXT",
+          "comment": "Practice phone number (E.164 format: +1XXXXXXXXXX)"
+        },
+        {
+          "name": "email",
+          "type": "TEXT"
+        },
+        {
+          "name": "address",
+          "type": "TEXT"
+        },
+        {
+          "name": "timezone",
+          "type": "TEXT",
+          "default": "'America/New_York'",
+          "comment": "IANA timezone (e.g., 'America/Los_Angeles')"
+        },
+        {
+          "name": "subscription_status",
+          "type": "TEXT",
+          "default": "'trial'",
+          "comment": "trial, active, suspended, canceled"
+        },
+        {
+          "name": "subscription_tier",
+          "type": "TEXT",
+          "comment": "essential, professional, enterprise"
+        },
+        {
+          "name": "settings",
+          "type": "JSONB",
+          "default": "'{}'::jsonb",
+          "comment": "Flexible settings (office hours, booking rules, etc.)"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "notNull": true,
+          "default": "NOW()"
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "notNull": true,
+          "default": "NOW()"
+        },
+        {
+          "name": "deleted_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "comment": "Soft delete"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_tenants_phone",
+          "columns": ["phone_number"]
+        },
+        {
+          "name": "idx_tenants_status",
+          "columns": ["subscription_status"]
+        }
+      ]
+    },
+    {
+      "name": "leads",
+      "description": "Patients/potential patients (before or after first appointment)",
+      "columns": [
+        {
+          "name": "id",
+          "type": "UUID",
+          "primaryKey": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "tenant_id",
+          "type": "UUID",
+          "notNull": true,
+          "references": "public.tenants(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "phone",
+          "type": "TEXT",
+          "notNull": true,
+          "comment": "Normalized phone (E.164 format)"
+        },
+        {
+          "name": "email",
+          "type": "TEXT"
+        },
+        {
+          "name": "first_name",
+          "type": "TEXT"
+        },
+        {
+          "name": "last_name",
+          "type": "TEXT"
+        },
+        {
+          "name": "status",
+          "type": "TEXT",
+          "default": "'new'",
+          "comment": "new, contacted, engaged, appointment_set, patient, inactive"
+        },
+        {
+          "name": "source",
+          "type": "TEXT",
+          "comment": "How they found practice (referral, google, social, etc.)"
+        },
+        {
+          "name": "metadata",
+          "type": "JSONB",
+          "default": "'{}'::jsonb",
+          "comment": "Additional flexible data"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "notNull": true,
+          "default": "NOW()"
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "notNull": true,
+          "default": "NOW()"
+        },
+        {
+          "name": "deleted_at",
+          "type": "TIMESTAMP WITH TIME ZONE"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_leads_tenant_phone",
+          "columns": ["tenant_id", "phone"],
+          "unique": true,
+          "comment": "Prevent duplicate phone numbers per tenant"
+        },
+        {
+          "name": "idx_leads_tenant_id",
+          "columns": ["tenant_id"]
+        },
+        {
+          "name": "idx_leads_status",
+          "columns": ["status"]
+        },
+        {
+          "name": "idx_leads_created_at",
+          "columns": ["created_at"]
+        }
+      ]
+    },
+    {
+      "name": "providers",
+      "description": "Dentists, hygienists, specialists",
+      "columns": [
+        {
+          "name": "id",
+          "type": "UUID",
+          "primaryKey": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "tenant_id",
+          "type": "UUID",
+          "notNull": true,
+          "references": "public.tenants(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "notNull": true,
+          "comment": "Dr. Sarah Chen"
+        },
+        {
+          "name": "title",
+          "type": "TEXT",
+          "comment": "General Dentist, Orthodontist, Hygienist, etc."
+        },
+        {
+          "name": "email",
+          "type": "TEXT"
+        },
+        {
+          "name": "is_active",
+          "type": "BOOLEAN",
+          "default": "true"
+        },
+        {
+          "name": "schedule_settings",
+          "type": "JSONB",
+          "default": "'{}'::jsonb",
+          "comment": "Working hours, buffer times, max appointments/day"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "notNull": true,
+          "default": "NOW()"
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "notNull": true,
+          "default": "NOW()"
+        },
+        {
+          "name": "deleted_at",
+          "type": "TIMESTAMP WITH TIME ZONE"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_providers_tenant_id",
+          "columns": ["tenant_id"]
+        },
+        {
+          "name": "idx_providers_active",
+          "columns": ["is_active"]
+        }
+      ]
+    },
+    {
+      "name": "scheduling_slots",
+      "description": "Pre-generated availability slots",
+      "columns": [
+        {
+          "name": "id",
+          "type": "UUID",
+          "primaryKey": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "tenant_id",
+          "type": "UUID",
+          "notNull": true,
+          "references": "public.tenants(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "provider_id",
+          "type": "UUID",
+          "notNull": true,
+          "references": "public.providers(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "slot_date",
+          "type": "DATE",
+          "notNull": true,
+          "comment": "Date of slot (YYYY-MM-DD)"
+        },
+        {
+          "name": "start_time",
+          "type": "TIME",
+          "notNull": true,
+          "comment": "Start time (HH:MM:SS)"
+        },
+        {
+          "name": "end_time",
+          "type": "TIME",
+          "notNull": true,
+          "comment": "End time (HH:MM:SS)"
+        },
+        {
+          "name": "is_available",
+          "type": "BOOLEAN",
+          "default": "true",
+          "comment": "False if booked or blocked"
+        },
+        {
+          "name": "appointment_id",
+          "type": "UUID",
+          "comment": "If booked, reference to appointment"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "notNull": true,
+          "default": "NOW()"
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "notNull": true,
+          "default": "NOW()"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_slots_tenant_provider_date",
+          "columns": ["tenant_id", "provider_id", "slot_date"]
+        },
+        {
+          "name": "idx_slots_available",
+          "columns": ["is_available", "slot_date"]
+        },
+        {
+          "name": "idx_slots_appointment_id",
+          "columns": ["appointment_id"]
+        }
+      ],
+      "constraints": [
+        {
+          "type": "EXCLUDE",
+          "definition": "USING gist (tenant_id WITH =, provider_id WITH =, tsrange(slot_date + start_time, slot_date + end_time) WITH &&) WHERE (appointment_id IS NOT NULL)",
+          "comment": "Prevent double-booking: same provider cannot have overlapping appointments"
+        }
+      ]
+    },
+    {
+      "name": "appointments",
+      "description": "Scheduled appointments",
+      "columns": [
+        {
+          "name": "id",
+          "type": "UUID",
+          "primaryKey": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "tenant_id",
+          "type": "UUID",
+          "notNull": true,
+          "references": "public.tenants(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "lead_id",
+          "type": "UUID",
+          "notNull": true,
+          "references": "public.leads(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "provider_id",
+          "type": "UUID",
+          "notNull": true,
+          "references": "public.providers(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "appointment_date",
+          "type": "DATE",
+          "notNull": true
+        },
+        {
+          "name": "start_time",
+          "type": "TIME",
+          "notNull": true
+        },
+        {
+          "name": "end_time",
+          "type": "TIME",
+          "notNull": true
+        },
+        {
+          "name": "status",
+          "type": "TEXT",
+          "default": "'pending'",
+          "comment": "pending, confirmed, checked_in, completed, no_show, canceled"
+        },
+        {
+          "name": "appointment_type",
+          "type": "TEXT",
+          "comment": "cleaning, exam, consult, procedure, etc."
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "comment": "Appointment notes (NOT clinical notes)"
+        },
+        {
+          "name": "confirmed_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "comment": "When patient confirmed (via SMS/call)"
+        },
+        {
+          "name": "canceled_at",
+          "type": "TIMESTAMP WITH TIME ZONE"
+        },
+        {
+          "name": "cancellation_reason",
+          "type": "TEXT"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "notNull": true,
+          "default": "NOW()"
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "notNull": true,
+          "default": "NOW()"
+        },
+        {
+          "name": "deleted_at",
+          "type": "TIMESTAMP WITH TIME ZONE"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_appointments_tenant_id",
+          "columns": ["tenant_id"]
+        },
+        {
+          "name": "idx_appointments_lead_id",
+          "columns": ["lead_id"]
+        },
+        {
+          "name": "idx_appointments_provider_date",
+          "columns": ["provider_id", "appointment_date"]
+        },
+        {
+          "name": "idx_appointments_status",
+          "columns": ["status"]
+        },
+        {
+          "name": "idx_appointments_date",
+          "columns": ["appointment_date"]
+        }
+      ]
+    },
+    {
+      "name": "call_sessions",
+      "description": "Individual phone call tracking",
+      "columns": [
+        {
+          "name": "id",
+          "type": "UUID",
+          "primaryKey": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "tenant_id",
+          "type": "UUID",
+          "notNull": true,
+          "references": "public.tenants(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "lead_id",
+          "type": "UUID",
+          "references": "public.leads(id) ON DELETE SET NULL",
+          "comment": "Nullable: lead may not exist yet when call starts"
+        },
+        {
+          "name": "twilio_call_sid",
+          "type": "TEXT",
+          "unique": true,
+          "comment": "Twilio unique call identifier"
+        },
+        {
+          "name": "from_number",
+          "type": "TEXT",
+          "notNull": true,
+          "comment": "Caller's phone number"
+        },
+        {
+          "name": "to_number",
+          "type": "TEXT",
+          "notNull": true,
+          "comment": "Practice phone number"
+        },
+        {
+          "name": "direction",
+          "type": "TEXT",
+          "comment": "inbound, outbound"
+        },
+        {
+          "name": "status",
+          "type": "TEXT",
+          "comment": "ringing, in-progress, completed, failed, busy, no-answer"
+        },
+        {
+          "name": "outcome",
+          "type": "TEXT",
+          "comment": "appointment_booked, question_answered, escalation_needed, caller_hung_up, etc."
+        },
+        {
+          "name": "outcome_detail",
+          "type": "TEXT",
+          "comment": "AI-generated summary of call"
+        },
+        {
+          "name": "duration_seconds",
+          "type": "INTEGER"
+        },
+        {
+          "name": "recording_url",
+          "type": "TEXT",
+          "comment": "Twilio recording URL (if enabled)"
+        },
+        {
+          "name": "transcript",
+          "type": "TEXT",
+          "comment": "Full conversation transcript"
+        },
+        {
+          "name": "started_at",
+          "type": "TIMESTAMP WITH TIME ZONE"
+        },
+        {
+          "name": "ended_at",
+          "type": "TIMESTAMP WITH TIME ZONE"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "notNull": true,
+          "default": "NOW()"
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "notNull": true,
+          "default": "NOW()"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_call_sessions_tenant_id",
+          "columns": ["tenant_id"]
+        },
+        {
+          "name": "idx_call_sessions_lead_id",
+          "columns": ["lead_id"]
+        },
+        {
+          "name": "idx_call_sessions_twilio_sid",
+          "columns": ["twilio_call_sid"]
+        },
+        {
+          "name": "idx_call_sessions_outcome",
+          "columns": ["outcome"]
+        },
+        {
+          "name": "idx_call_sessions_created_at",
+          "columns": ["created_at"]
+        }
+      ]
+    },
+    {
+      "name": "conversation_events",
+      "description": "Immutable event ledger - every action logged",
+      "columns": [
+        {
+          "name": "id",
+          "type": "UUID",
+          "primaryKey": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "tenant_id",
+          "type": "UUID",
+          "notNull": true,
+          "references": "public.tenants(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "lead_id",
+          "type": "UUID",
+          "references": "public.leads(id) ON DELETE SET NULL"
+        },
+        {
+          "name": "call_session_id",
+          "type": "UUID",
+          "references": "public.call_sessions(id) ON DELETE CASCADE",
+          "comment": "If event is part of a call"
+        },
+        {
+          "name": "event_type",
+          "type": "TEXT",
+          "notNull": true,
+          "comment": "call.inbound, identity.resolved, booking.created, wrapup.completed, etc."
+        },
+        {
+          "name": "event_data",
+          "type": "JSONB",
+          "default": "'{}'::jsonb",
+          "comment": "Flexible event context"
+        },
+        {
+          "name": "speaker",
+          "type": "TEXT",
+          "comment": "caller, ai, system"
+        },
+        {
+          "name": "utterance",
+          "type": "TEXT",
+          "comment": "What was said (if conversational event)"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "notNull": true,
+          "default": "NOW()",
+          "comment": "APPEND-ONLY: Never updated or deleted"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_events_tenant_id",
+          "columns": ["tenant_id"]
+        },
+        {
+          "name": "idx_events_lead_id",
+          "columns": ["lead_id"]
+        },
+        {
+          "name": "idx_events_call_session_id",
+          "columns": ["call_session_id"]
+        },
+        {
+          "name": "idx_events_type",
+          "columns": ["event_type"]
+        },
+        {
+          "name": "idx_events_created_at",
+          "columns": ["created_at"]
+        }
+      ]
+    },
+    {
+      "name": "alerts",
+      "description": "Alert history (Slack notifications)",
+      "columns": [
+        {
+          "name": "id",
+          "type": "UUID",
+          "primaryKey": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "tenant_id",
+          "type": "UUID",
+          "notNull": true,
+          "references": "public.tenants(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "alert_type",
+          "type": "TEXT",
+          "notNull": true,
+          "comment": "booking, missed_call, escalation, error"
+        },
+        {
+          "name": "subject",
+          "type": "TEXT",
+          "comment": "Alert title/summary"
+        },
+        {
+          "name": "message",
+          "type": "TEXT",
+          "comment": "Full alert message"
+        },
+        {
+          "name": "call_session_id",
+          "type": "UUID",
+          "references": "public.call_sessions(id) ON DELETE SET NULL"
+        },
+        {
+          "name": "appointment_id",
+          "type": "UUID",
+          "references": "public.appointments(id) ON DELETE SET NULL"
+        },
+        {
+          "name": "severity",
+          "type": "TEXT",
+          "default": "'info'",
+          "comment": "info, warning, error, critical"
+        },
+        {
+          "name": "sent_at",
+          "type": "TIMESTAMP WITH TIME ZONE"
+        },
+        {
+          "name": "acknowledged_at",
+          "type": "TIMESTAMP WITH TIME ZONE"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "notNull": true,
+          "default": "NOW()"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_alerts_tenant_id",
+          "columns": ["tenant_id"]
+        },
+        {
+          "name": "idx_alerts_type",
+          "columns": ["alert_type"]
+        },
+        {
+          "name": "idx_alerts_created_at",
+          "columns": ["created_at"]
+        }
+      ]
+    },
+    {
+      "name": "idempotency_keys",
+      "description": "Prevent duplicate events/alerts",
+      "columns": [
+        {
+          "name": "id",
+          "type": "UUID",
+          "primaryKey": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "tenant_id",
+          "type": "UUID",
+          "notNull": true,
+          "references": "public.tenants(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "operation_id",
+          "type": "TEXT",
+          "notNull": true,
+          "comment": "Unique operation identifier (e.g., 'alert:booking:appt_123')"
+        },
+        {
+          "name": "operation_type",
+          "type": "TEXT",
+          "comment": "alert, event, sms, email, etc."
+        },
+        {
+          "name": "status",
+          "type": "TEXT",
+          "default": "'completed'",
+          "comment": "completed, failed"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "notNull": true,
+          "default": "NOW()"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_idempotency_tenant_operation",
+          "columns": ["tenant_id", "operation_id"],
+          "unique": true,
+          "comment": "Enforce: one operation per tenant"
+        },
+        {
+          "name": "idx_idempotency_created_at",
+          "columns": ["created_at"]
+        }
+      ]
+    },
+    {
+      "name": "schema_migrations",
+      "description": "Database schema version tracking",
+      "columns": [
+        {
+          "name": "id",
+          "type": "UUID",
+          "primaryKey": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "version",
+          "type": "TEXT",
+          "notNull": true,
+          "unique": true
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "notNull": true
+        },
+        {
+          "name": "applied_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "notNull": true,
+          "default": "NOW()"
+        },
+        {
+          "name": "applied_by",
+          "type": "TEXT",
+          "default": "'WF106'"
+        },
+        {
+          "name": "checksum",
+          "type": "TEXT"
+        },
+        {
+          "name": "execution_time_ms",
+          "type": "INTEGER"
+        },
+        {
+          "name": "status",
+          "type": "TEXT",
+          "notNull": true,
+          "default": "'success'"
+        },
+        {
+          "name": "error_message",
+          "type": "TEXT"
+        },
+        {
+          "name": "sql_script",
+          "type": "TEXT"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_schema_migrations_version",
+          "columns": ["version"]
+        },
+        {
+          "name": "idx_schema_migrations_applied_at",
+          "columns": ["applied_at"]
+        }
+      ]
+    }
+  ]
+}

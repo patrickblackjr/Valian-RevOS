@@ -1,0 +1,369 @@
+{
+  "name": "WF106: Schema Builder",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf106-schema-builder",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "wf106-schema-builder"
+    },
+    {
+      "parameters": {
+        "content": "## WF106: Schema Builder\n\n**Purpose:** Automate database schema migrations for RevOS\n\n**Input (JSON):**\n```json\n{\n  \"version\": \"001\",\n  \"description\": \"Foundation Schema - 10 core tables\",\n  \"tables\": [\n    {\n      \"name\": \"tenants\",\n      \"columns\": [...],\n      \"indexes\": [...]\n    },\n    ...\n  ]\n}\n```\n\n**Flow:**\n1. Receive blueprint via webhook\n2. Check if version already applied (idempotency)\n3. Generate SQL from blueprint\n4. Apply SQL to Supabase\n5. Log migration in schema_migrations table\n6. Return success/failure response\n\n**Security:** Only accessible via authenticated webhook (add auth later)\n\n**Testing:** Use n8n \"Test workflow\" with sample blueprint JSON",
+        "height": 350,
+        "width": 450
+      },
+      "id": "sticky-note-docs",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [250, 100]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract blueprint from webhook body\nconst blueprint = $input.item.json.body || $input.item.json;\n\n// Validate required fields\nif (!blueprint.version) {\n  throw new Error('Missing required field: version');\n}\nif (!blueprint.description) {\n  throw new Error('Missing required field: description');\n}\nif (!blueprint.tables || !Array.isArray(blueprint.tables)) {\n  throw new Error('Missing or invalid field: tables (must be array)');\n}\n\n// Extract and validate\nconst version = blueprint.version.toString();\nconst description = blueprint.description;\nconst tables = blueprint.tables;\n\nreturn {\n  json: {\n    version,\n    description,\n    tables,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "code-parse-blueprint",
+      "name": "Parse Blueprint",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM public.schema_migrations WHERE version = '{{ $json.version }}' LIMIT 1;",
+        "options": {}
+      },
+      "id": "supabase-check-version",
+      "name": "Check If Version Exists",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [650, 300],
+      "credentials": {
+        "postgres": {
+          "id": "supabase-revos-prod",
+          "name": "Supabase RevOS Production"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-version-not-exists",
+      "name": "If Version Not Exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate SQL from blueprint\nconst { version, description, tables } = $input.item.json;\n\nlet sql = `-- RevOS Schema Migration\\n`;\nsql += `-- Version: ${version}\\n`;\nsql += `-- Description: ${description}\\n`;\nsql += `-- Generated: ${new Date().toISOString()}\\n\\n`;\n\n// Generate CREATE TABLE statements for each table\nfor (const table of tables) {\n  const tableName = table.name;\n  const columns = table.columns || [];\n  const indexes = table.indexes || [];\n  const constraints = table.constraints || [];\n\n  sql += `-- Table: ${tableName}\\n`;\n  sql += `CREATE TABLE IF NOT EXISTS public.${tableName} (\\n`;\n\n  // Add columns\n  const columnDefs = columns.map(col => {\n    let def = `    ${col.name} ${col.type}`;\n    if (col.primaryKey) def += ' PRIMARY KEY';\n    if (col.notNull) def += ' NOT NULL';\n    if (col.unique) def += ' UNIQUE';\n    if (col.default) def += ` DEFAULT ${col.default}`;\n    if (col.references) def += ` REFERENCES ${col.references}`;\n    return def;\n  });\n\n  sql += columnDefs.join(',\\n');\n  sql += `\\n);\\n\\n`;\n\n  // Add indexes\n  for (const index of indexes) {\n    sql += `CREATE INDEX IF NOT EXISTS ${index.name} ON public.${tableName}(${index.columns.join(', ')});\\n`;\n  }\n\n  sql += `\\n`;\n}\n\nreturn {\n  json: {\n    version,\n    description,\n    sql,\n    checksum: require('crypto').createHash('sha256').update(sql).digest('hex')\n  }\n};"
+      },
+      "id": "code-generate-sql",
+      "name": "Generate SQL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 200]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql }}",
+        "options": {}
+      },
+      "id": "supabase-apply-migration",
+      "name": "Apply Migration to Supabase",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1250, 200],
+      "credentials": {
+        "postgres": {
+          "id": "supabase-revos-prod",
+          "name": "Supabase RevOS Production"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": "public",
+        "table": "schema_migrations",
+        "columns": {
+          "mappings": [
+            {
+              "column": "version",
+              "value": "={{ $('Generate SQL').item.json.version }}"
+            },
+            {
+              "column": "description",
+              "value": "={{ $('Generate SQL').item.json.description }}"
+            },
+            {
+              "column": "applied_by",
+              "value": "WF106"
+            },
+            {
+              "column": "checksum",
+              "value": "={{ $('Generate SQL').item.json.checksum }}"
+            },
+            {
+              "column": "status",
+              "value": "success"
+            },
+            {
+              "column": "sql_script",
+              "value": "={{ $('Generate SQL').item.json.sql }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "supabase-log-migration",
+      "name": "Log Migration Success",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1450, 200],
+      "credentials": {
+        "postgres": {
+          "id": "supabase-revos-prod",
+          "name": "Supabase RevOS Production"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  \"success\": true,\n  \"version\": $('Generate SQL').item.json.version,\n  \"description\": $('Generate SQL').item.json.description,\n  \"message\": \"Migration applied successfully\",\n  \"timestamp\": $now\n} }}",
+        "options": {}
+      },
+      "id": "response-success",
+      "name": "Return Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1650, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  \"success\": false,\n  \"version\": $('Parse Blueprint').item.json.version,\n  \"message\": \"Migration version already exists. Skipping (idempotent).\",\n  \"timestamp\": $now\n} }}",
+        "responseCode": 200,
+        "options": {}
+      },
+      "id": "response-already-exists",
+      "name": "Return Already Exists Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1050, 400]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": "public",
+        "table": "schema_migrations",
+        "columns": {
+          "mappings": [
+            {
+              "column": "version",
+              "value": "={{ $('Parse Blueprint').item.json.version }}"
+            },
+            {
+              "column": "description",
+              "value": "={{ $('Parse Blueprint').item.json.description }}"
+            },
+            {
+              "column": "applied_by",
+              "value": "WF106"
+            },
+            {
+              "column": "status",
+              "value": "failed"
+            },
+            {
+              "column": "error_message",
+              "value": "={{ $json.message || 'Unknown error' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "supabase-log-error",
+      "name": "Log Migration Failure",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1450, 500],
+      "credentials": {
+        "postgres": {
+          "id": "supabase-revos-prod",
+          "name": "Supabase RevOS Production"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  \"success\": false,\n  \"version\": $('Parse Blueprint').item.json.version,\n  \"error\": $json.message || 'Migration failed',\n  \"timestamp\": $now\n} }}",
+        "responseCode": 500,
+        "options": {}
+      },
+      "id": "response-error",
+      "name": "Return Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1650, 500]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Blueprint",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Blueprint": {
+      "main": [
+        [
+          {
+            "node": "Check If Version Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Version Exists": {
+      "main": [
+        [
+          {
+            "node": "If Version Not Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Version Not Exists": {
+      "main": [
+        [
+          {
+            "node": "Generate SQL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Already Exists Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate SQL": {
+      "main": [
+        [
+          {
+            "node": "Apply Migration to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply Migration to Supabase": {
+      "main": [
+        [
+          {
+            "node": "Log Migration Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Migration Success": {
+      "main": [
+        [
+          {
+            "node": "Return Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply Migration to Supabase": {
+      "error": [
+        [
+          {
+            "node": "Log Migration Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Migration Failure": {
+      "main": [
+        [
+          {
+            "node": "Return Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "Infrastructure",
+      "id": "infra"
+    },
+    {
+      "name": "Day 1",
+      "id": "day1"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2026-02-04T00:00:00.000Z",
+  "versionId": "1"
+}

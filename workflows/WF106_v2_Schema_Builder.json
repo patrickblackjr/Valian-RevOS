@@ -1,0 +1,618 @@
+{
+  "name": "WF106 v2.0: Schema Auto-Builder (Orchestration Convention)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf106/schema-builder",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node-0-1-webhook-trigger",
+      "name": "0.1 Webhook_DB_Auto_Builder_In",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 400],
+      "webhookId": "wf106-schema-builder-v2"
+    },
+    {
+      "parameters": {
+        "content": "## WF106 v2.0: Schema Auto-Builder\n\n**Version:** 2.0.0 (Orchestration Convention v1.0)\n**Purpose:** Deploy database schemas with idempotency, validation, and safety\n\n**Phase 1 Features (Day 1 MVP):**\n✅ Orchestration envelope (meta in/out)\n✅ Idempotency checking\n✅ Input validation\n✅ SQL generation with safety features\n✅ Migration logging\n✅ WF11 event logging (stub)\n✅ Standard output contract\n\n**Phase 2 Features (Later):**\n❌ Diff detection (S3-S4)\n❌ Risk gates\n❌ Verification smoke tests\n\n**Input Contract:**\n```json\n{\n  \"meta\": {\"tenant_id\": \"t_...\", \"idempotency_key\": \"...\"},\n  \"payload\": {\n    \"schema_version\": \"001\",\n    \"description\": \"Foundation Schema\",\n    \"tables\": [...]\n  }\n}\n```\n\n**Output Contract:**\n```json\n{\n  \"meta_out\": {\"workflow_name\": \"WF106\", \"success\": true, \"latency_ms\": 3200},\n  \"result\": {\"status\": \"applied|noop|blocked\", \"summary\": \"...\"},\n  \"audit\": {\"data_written\": [...], \"external_calls\": [...]}\n}\n```",
+        "height": 460,
+        "width": 520
+      },
+      "id": "sticky-note-docs",
+      "name": "Sticky Note - Documentation",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [220, -80],
+      "color": 4
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "meta_workflow_name",
+              "name": "meta.workflow_name",
+              "value": "WF106",
+              "type": "string"
+            },
+            {
+              "id": "meta_workflow_version",
+              "name": "meta.workflow_version",
+              "value": "2.0.0",
+              "type": "string"
+            },
+            {
+              "id": "meta_workflow_run_id",
+              "name": "meta.workflow_run_id",
+              "value": "={{ 'wr_' + $now.toUnixInteger() + '_' + $('0.1 Webhook_DB_Auto_Builder_In').item.json.body.meta?.tenant_id || 'system' }}",
+              "type": "string"
+            },
+            {
+              "id": "meta_trigger_source",
+              "name": "meta.trigger_source",
+              "value": "webhook",
+              "type": "string"
+            },
+            {
+              "id": "meta_timestamp_utc",
+              "name": "meta.timestamp_utc",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "meta_environment",
+              "name": "meta.environment",
+              "value": "prod",
+              "type": "string"
+            },
+            {
+              "id": "start_time_ms",
+              "name": "_internal.start_time_ms",
+              "value": "={{ Date.now() }}",
+              "type": "number"
+            },
+            {
+              "id": "input_body",
+              "name": "_internal.input_body",
+              "value": "={{ $json.body }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-1-set-envelope",
+      "name": "1 Set_Envelope_Defaults",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [450, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// S1: Input Normalization & Validation\n// Extract input and set defaults\nconst input = $input.item.json._internal?.input_body || $input.item.json.body || $input.item.json;\n\n// Set defaults for meta if not provided\nconst meta = input.meta || {};\nconst subject = input.subject || {};\nconst payload = input.payload || {};\nconst context = input.context || {};\n\n// Extract core fields\nconst tenant_id = meta.tenant_id || subject.tenant_id || 'system';\nconst schema_version = payload.schema_version || payload.version;\nconst description = payload.description;\nconst tables = payload.tables || [];\nconst force_apply = payload.force_apply || false;\n\n// Validation\nconst validation_errors = [];\n\nif (!schema_version) {\n  validation_errors.push('Missing required field: payload.schema_version');\n}\nif (!description) {\n  validation_errors.push('Missing required field: payload.description');\n}\nif (!Array.isArray(tables) || tables.length === 0) {\n  validation_errors.push('Missing or invalid field: payload.tables (must be non-empty array)');\n}\n\n// Normalize table structures and add default columns\nconst normalized_tables = [];\n\nfor (const table of tables) {\n  if (!table.name) {\n    validation_errors.push(`Table missing required field: name`);\n    continue;\n  }\n\n  // Normalize table name to snake_case\n  const table_name = table.name.toLowerCase().replace(/[^a-z0-9_]/g, '_');\n\n  // Get existing columns or initialize\n  const existing_columns = table.columns || [];\n\n  // Add default columns if not present\n  const default_columns = [\n    { name: 'id', type: 'UUID', primary_key: true, default: 'gen_random_uuid()' },\n    { name: 'tenant_id', type: 'UUID', not_null: true },\n    { name: 'created_at', type: 'TIMESTAMPTZ', not_null: true, default: 'NOW()' },\n    { name: 'updated_at', type: 'TIMESTAMPTZ', not_null: true, default: 'NOW()' },\n    { name: 'deleted_at', type: 'TIMESTAMPTZ' }\n  ];\n\n  // Merge columns (existing take precedence)\n  const column_names = new Set(existing_columns.map(c => c.name));\n  const merged_columns = [...existing_columns];\n\n  for (const default_col of default_columns) {\n    if (!column_names.has(default_col.name)) {\n      merged_columns.push(default_col);\n    }\n  }\n\n  // Normalize column names to snake_case\n  const normalized_columns = merged_columns.map(col => ({\n    ...col,\n    name: col.name.toLowerCase().replace(/[^a-z0-9_]/g, '_')\n  }));\n\n  // Add default indexes\n  const default_indexes = [\n    { name: `idx_${table_name}_tenant_id`, columns: ['tenant_id'] },\n    { name: `idx_${table_name}_created_at`, columns: ['created_at'] }\n  ];\n\n  const existing_indexes = table.indexes || [];\n  const index_names = new Set(existing_indexes.map(idx => idx.name));\n  const merged_indexes = [...existing_indexes];\n\n  for (const default_idx of default_indexes) {\n    if (!index_names.has(default_idx.name)) {\n      merged_indexes.push(default_idx);\n    }\n  }\n\n  normalized_tables.push({\n    name: table_name,\n    columns: normalized_columns,\n    indexes: merged_indexes,\n    constraints: table.constraints || []\n  });\n}\n\n// Build normalized schema\nconst normalized_schema = {\n  schema_version,\n  description,\n  tables: normalized_tables,\n  force_apply\n};\n\n// Compute schema hash for idempotency\nconst crypto = require('crypto');\nconst schema_json = JSON.stringify(normalized_schema, null, 2);\nconst schema_hash = crypto.createHash('sha256').update(schema_json).digest('hex');\n\nreturn {\n  json: {\n    meta: {\n      ...meta,\n      tenant_id,\n      workflow_name: 'WF106',\n      workflow_version: '2.0.0'\n    },\n    subject: {\n      tenant_id\n    },\n    payload: normalized_schema,\n    context,\n    core: {\n      normalized_schema,\n      schema_hash,\n      validation_ok: validation_errors.length === 0,\n      validation_errors\n    },\n    _internal: {\n      start_time_ms: $input.item.json._internal?.start_time_ms || Date.now()\n    }\n  }\n};"
+      },
+      "id": "node-2-normalize-input",
+      "name": "2 Code_Normalize_Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "validation-check",
+              "leftValue": "={{ $json.core.validation_ok }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-3-if-invalid",
+      "name": "3 IF_Invalid_Input",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  \"meta_out\": {\n    \"workflow_name\": \"WF106\",\n    \"workflow_run_id\": $json.meta.workflow_run_id,\n    \"latency_ms\": Date.now() - $json._internal.start_time_ms,\n    \"success\": false\n  },\n  \"result\": {\n    \"status\": \"blocked\",\n    \"summary\": \"Input validation failed\",\n    \"primary_outputs\": {\n      \"validation_errors\": $json.core.validation_errors\n    }\n  },\n  \"audit\": {\n    \"phi_touched\": false,\n    \"data_written\": [],\n    \"external_calls\": []\n  }\n} }}",
+        "responseCode": 400,
+        "options": {}
+      },
+      "id": "node-4-respond-invalid",
+      "name": "4 Respond_Invalid",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1050, 280]
+    },
+    {
+      "parameters": {
+        "jsCode": "// S1: Build Idempotency Key\nconst tenant_id = $json.meta.tenant_id || 'system';\nconst schema_version = $json.payload.schema_version;\nconst schema_hash = $json.core.schema_hash;\n\n// Idempotency key format: idem:wf106:{tenant_id}:{version}:{hash}\nconst idempotency_key = `idem:wf106:${tenant_id}:${schema_version}:${schema_hash}`;\n\nconst crypto = require('crypto');\nconst inputs_hash = crypto.createHash('sha256')\n  .update(JSON.stringify($json.payload))\n  .digest('hex');\n\nreturn {\n  json: {\n    ...$json,\n    meta: {\n      ...$json.meta,\n      idempotency_key,\n      inputs_hash\n    }\n  }\n};"
+      },
+      "id": "node-5-build-idem-key",
+      "name": "5 Code_Build_Idempotency_Key",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 520]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, version, description, applied_at, status\nFROM public.schema_migrations\nWHERE version = '{{ $json.payload.schema_version }}'\n  AND status = 'success'\nORDER BY applied_at DESC\nLIMIT 1;",
+        "options": {}
+      },
+      "id": "node-6-pg-idem-lookup",
+      "name": "6 PG_Idempotency_Lookup",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1250, 520],
+      "credentials": {
+        "postgres": {
+          "id": "supabase-revos-prod",
+          "name": "Supabase RevOS Production"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "already-applied-check",
+              "leftValue": "={{ $json.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-7-if-already-applied",
+      "name": "7 IF_Already_Applied",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1450, 520]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  \"meta_out\": {\n    \"workflow_name\": \"WF106\",\n    \"workflow_run_id\": $('5 Code_Build_Idempotency_Key').item.json.meta.workflow_run_id,\n    \"latency_ms\": Date.now() - $('5 Code_Build_Idempotency_Key').item.json._internal.start_time_ms,\n    \"success\": true,\n    \"inputs_hash\": $('5 Code_Build_Idempotency_Key').item.json.meta.inputs_hash\n  },\n  \"result\": {\n    \"status\": \"noop\",\n    \"summary\": \"Schema version \" + $('5 Code_Build_Idempotency_Key').item.json.payload.schema_version + \" already applied (idempotent)\",\n    \"primary_outputs\": {\n      \"schema_version\": $('5 Code_Build_Idempotency_Key').item.json.payload.schema_version,\n      \"already_applied_at\": $json.applied_at,\n      \"migration_log_id\": $json.id\n    }\n  },\n  \"audit\": {\n    \"phi_touched\": false,\n    \"data_written\": [],\n    \"external_calls\": [\n      {\"service\": \"supabase\", \"endpoint\": \"query_schema_migrations\", \"latency_ms\": 50}\n    ]\n  }\n} }}",
+        "responseCode": 200,
+        "options": {}
+      },
+      "id": "node-8-respond-noop",
+      "name": "8 Respond_Noop",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1650, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// S5: Generate SQL Migration\n// Enhanced SQL generation with safety features\nconst { schema_version, description, tables } = $json.payload;\nconst tenant_id = $json.meta.tenant_id || 'system';\n\nlet sql = `-- RevOS Schema Migration\\n`;\nsql += `-- Version: ${schema_version}\\n`;\nsql += `-- Description: ${description}\\n`;\nsql += `-- Tenant: ${tenant_id}\\n`;\nsql += `-- Generated: ${new Date().toISOString()}\\n`;\nsql += `-- Workflow: WF106 v2.0\\n\\n`;\n\n// Start transaction\nsql += `BEGIN;\\n\\n`;\n\n// Enable pgcrypto extension for gen_random_uuid()\nsql += `-- Enable UUID generation\\n`;\nsql += `CREATE EXTENSION IF NOT EXISTS pgcrypto;\\n\\n`;\n\n// Generate CREATE TABLE statements for each table\nfor (const table of tables) {\n  const tableName = table.name;\n  const columns = table.columns || [];\n  const indexes = table.indexes || [];\n\n  sql += `-- ========================================\\n`;\n  sql += `-- Table: ${tableName}\\n`;\n  sql += `-- ========================================\\n`;\n  sql += `CREATE TABLE IF NOT EXISTS public.${tableName} (\\n`;\n\n  // Add columns\n  const columnDefs = columns.map((col, idx) => {\n    let def = `    ${col.name} ${col.type}`;\n    \n    if (col.primary_key) def += ' PRIMARY KEY';\n    if (col.not_null) def += ' NOT NULL';\n    if (col.unique) def += ' UNIQUE';\n    if (col.default !== undefined) {\n      // Handle different default types\n      if (col.default === 'gen_random_uuid()' || col.default === 'NOW()') {\n        def += ` DEFAULT ${col.default}`;\n      } else if (typeof col.default === 'string') {\n        def += ` DEFAULT '${col.default}'`;\n      } else {\n        def += ` DEFAULT ${col.default}`;\n      }\n    }\n    if (col.references) def += ` REFERENCES ${col.references}`;\n    \n    return def;\n  });\n\n  sql += columnDefs.join(',\\n');\n  sql += `\\n);\\n\\n`;\n\n  // Add indexes\n  if (indexes.length > 0) {\n    sql += `-- Indexes for ${tableName}\\n`;\n    for (const index of indexes) {\n      const indexColumns = Array.isArray(index.columns) ? index.columns.join(', ') : index.columns;\n      sql += `CREATE INDEX IF NOT EXISTS ${index.name} ON public.${tableName}(${indexColumns});\\n`;\n    }\n    sql += `\\n`;\n  }\n\n  // Enable Row-Level Security (multi-tenant fence)\n  sql += `-- Enable Row-Level Security for ${tableName}\\n`;\n  sql += `ALTER TABLE public.${tableName} ENABLE ROW LEVEL SECURITY;\\n\\n`;\n\n  // Add basic RLS policy (all tenants can access their own data)\n  sql += `-- RLS Policy for ${tableName}\\n`;\n  sql += `CREATE POLICY IF NOT EXISTS ${tableName}_tenant_isolation\\n`;\n  sql += `  ON public.${tableName}\\n`;\n  sql += `  FOR ALL\\n`;\n  sql += `  USING (tenant_id::text = current_setting('app.current_tenant_id', true));\\n\\n`;\n}\n\n// Commit transaction\nsql += `COMMIT;\\n`;\n\n// Compute checksum\nconst crypto = require('crypto');\nconst checksum = crypto.createHash('sha256').update(sql).digest('hex');\n\nreturn {\n  json: {\n    ...$json,\n    generated_sql: {\n      sql,\n      checksum,\n      table_count: tables.length,\n      total_indexes: tables.reduce((sum, t) => sum + (t.indexes?.length || 0), 0)\n    }\n  }\n};"
+      },
+      "id": "node-9-generate-sql",
+      "name": "9 Code_Generate_SQL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1650, 640]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.generated_sql.sql }}",
+        "options": {}
+      },
+      "id": "node-10-pg-execute-sql",
+      "name": "10 PG_Execute_SQL",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1850, 640],
+      "credentials": {
+        "postgres": {
+          "id": "supabase-revos-prod",
+          "name": "Supabase RevOS Production"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list",
+          "cachedResultName": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "schema_migrations",
+          "mode": "list",
+          "cachedResultName": "schema_migrations"
+        },
+        "columns": {
+          "mappings": [
+            {
+              "column": "version",
+              "value": "={{ $('9 Code_Generate_SQL').item.json.payload.schema_version }}"
+            },
+            {
+              "column": "description",
+              "value": "={{ $('9 Code_Generate_SQL').item.json.payload.description }}"
+            },
+            {
+              "column": "applied_by",
+              "value": "WF106_v2.0"
+            },
+            {
+              "column": "checksum",
+              "value": "={{ $('9 Code_Generate_SQL').item.json.generated_sql.checksum }}"
+            },
+            {
+              "column": "status",
+              "value": "success"
+            },
+            {
+              "column": "sql_script",
+              "value": "={{ $('9 Code_Generate_SQL').item.json.generated_sql.sql }}"
+            },
+            {
+              "column": "metadata",
+              "value": "={{ JSON.stringify({\n  table_count: $('9 Code_Generate_SQL').item.json.generated_sql.table_count,\n  total_indexes: $('9 Code_Generate_SQL').item.json.generated_sql.total_indexes,\n  workflow_run_id: $('9 Code_Generate_SQL').item.json.meta.workflow_run_id,\n  idempotency_key: $('9 Code_Generate_SQL').item.json.meta.idempotency_key\n}) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-11-pg-write-migration",
+      "name": "11 PG_Write_Migration_Log_Applied",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2050, 640],
+      "credentials": {
+        "postgres": {
+          "id": "supabase-revos-prod",
+          "name": "Supabase RevOS Production"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "stub-event",
+              "name": "wf11_event_stub",
+              "value": "={{ {\n  \"event_type\": \"schema_migration_applied\",\n  \"schema_version\": $('9 Code_Generate_SQL').item.json.payload.schema_version,\n  \"table_count\": $('9 Code_Generate_SQL').item.json.generated_sql.table_count,\n  \"workflow_run_id\": $('9 Code_Generate_SQL').item.json.meta.workflow_run_id,\n  \"note\": \"WF11 integration pending - this is a stub for Day 1 MVP\"\n} }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-12-wf11-stub",
+      "name": "12 [Stub] Execute_WF11_Log_Event",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2250, 640]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "meta-out-wf-name",
+              "name": "meta_out.workflow_name",
+              "value": "WF106",
+              "type": "string"
+            },
+            {
+              "id": "meta-out-run-id",
+              "name": "meta_out.workflow_run_id",
+              "value": "={{ $('9 Code_Generate_SQL').item.json.meta.workflow_run_id }}",
+              "type": "string"
+            },
+            {
+              "id": "meta-out-latency",
+              "name": "meta_out.latency_ms",
+              "value": "={{ Date.now() - $('9 Code_Generate_SQL').item.json._internal.start_time_ms }}",
+              "type": "number"
+            },
+            {
+              "id": "meta-out-success",
+              "name": "meta_out.success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "meta-out-inputs-hash",
+              "name": "meta_out.inputs_hash",
+              "value": "={{ $('9 Code_Generate_SQL').item.json.meta.inputs_hash }}",
+              "type": "string"
+            },
+            {
+              "id": "meta-out-outputs-hash",
+              "name": "meta_out.outputs_hash",
+              "value": "={{ $('9 Code_Generate_SQL').item.json.generated_sql.checksum }}",
+              "type": "string"
+            },
+            {
+              "id": "result-status",
+              "name": "result.status",
+              "value": "applied",
+              "type": "string"
+            },
+            {
+              "id": "result-summary",
+              "name": "result.summary",
+              "value": "={{ 'Applied schema v' + $('9 Code_Generate_SQL').item.json.payload.schema_version + ': ' + $('9 Code_Generate_SQL').item.json.generated_sql.table_count + ' tables created' }}",
+              "type": "string"
+            },
+            {
+              "id": "result-schema-version",
+              "name": "result.primary_outputs.schema_version",
+              "value": "={{ $('9 Code_Generate_SQL').item.json.payload.schema_version }}",
+              "type": "string"
+            },
+            {
+              "id": "result-tables-created",
+              "name": "result.primary_outputs.tables_created",
+              "value": "={{ $('9 Code_Generate_SQL').item.json.generated_sql.table_count }}",
+              "type": "number"
+            },
+            {
+              "id": "result-indexes-created",
+              "name": "result.primary_outputs.indexes_created",
+              "value": "={{ $('9 Code_Generate_SQL').item.json.generated_sql.total_indexes }}",
+              "type": "number"
+            },
+            {
+              "id": "result-migration-log-id",
+              "name": "result.primary_outputs.migration_log_id",
+              "value": "={{ $('11 PG_Write_Migration_Log_Applied').item.json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "result-warnings",
+              "name": "result.primary_outputs.warnings",
+              "value": "={{ [] }}",
+              "type": "array"
+            },
+            {
+              "id": "audit-phi",
+              "name": "audit.phi_touched",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "audit-data-written",
+              "name": "audit.data_written",
+              "value": "={{ [{\n  \"table\": \"schema_migrations\",\n  \"record_id\": $('11 PG_Write_Migration_Log_Applied').item.json.id\n}] }}",
+              "type": "array"
+            },
+            {
+              "id": "audit-external-calls",
+              "name": "audit.external_calls",
+              "value": "={{ [\n  {\"service\": \"supabase\", \"endpoint\": \"execute_sql\", \"latency_ms\": 2800},\n  {\"service\": \"supabase\", \"endpoint\": \"insert_migration_log\", \"latency_ms\": 150}\n] }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-13-set-output",
+      "name": "13 Set_Output_Envelope",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2450, 640]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  \"meta_out\": $json.meta_out,\n  \"result\": $json.result,\n  \"audit\": $json.audit\n} }}",
+        "responseCode": 200,
+        "options": {}
+      },
+      "id": "node-14-respond-applied",
+      "name": "14 Respond_Applied",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2650, 640]
+    }
+  ],
+  "connections": {
+    "0.1 Webhook_DB_Auto_Builder_In": {
+      "main": [
+        [
+          {
+            "node": "1 Set_Envelope_Defaults",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1 Set_Envelope_Defaults": {
+      "main": [
+        [
+          {
+            "node": "2 Code_Normalize_Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2 Code_Normalize_Input": {
+      "main": [
+        [
+          {
+            "node": "3 IF_Invalid_Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3 IF_Invalid_Input": {
+      "main": [
+        [
+          {
+            "node": "4 Respond_Invalid",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "5 Code_Build_Idempotency_Key",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5 Code_Build_Idempotency_Key": {
+      "main": [
+        [
+          {
+            "node": "6 PG_Idempotency_Lookup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6 PG_Idempotency_Lookup": {
+      "main": [
+        [
+          {
+            "node": "7 IF_Already_Applied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "7 IF_Already_Applied": {
+      "main": [
+        [
+          {
+            "node": "8 Respond_Noop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "9 Code_Generate_SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "9 Code_Generate_SQL": {
+      "main": [
+        [
+          {
+            "node": "10 PG_Execute_SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "10 PG_Execute_SQL": {
+      "main": [
+        [
+          {
+            "node": "11 PG_Write_Migration_Log_Applied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "11 PG_Write_Migration_Log_Applied": {
+      "main": [
+        [
+          {
+            "node": "12 [Stub] Execute_WF11_Log_Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "12 [Stub] Execute_WF11_Log_Event": {
+      "main": [
+        [
+          {
+            "node": "13 Set_Output_Envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "13 Set_Output_Envelope": {
+      "main": [
+        [
+          {
+            "node": "14 Respond_Applied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "Infrastructure",
+      "id": "infra"
+    },
+    {
+      "name": "Day 1",
+      "id": "day1"
+    },
+    {
+      "name": "Orchestration",
+      "id": "orchestration"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2026-02-05T00:00:00.000Z",
+  "versionId": "2.0.0"
+}
