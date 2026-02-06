@@ -1845,9 +1845,14 @@ Each sprint follows the same pattern:
   - **Infrastructure:** Use consistent hashing for lead identification and ensure logging for all identity resolution attempts.
   - *Ensure Idempotency*: Use idempotency keys to prevent duplicate lead creation when resolving identities.
   - *Audit Logging*: Log each identity resolution attempt in `workflow_audit_log` for traceability.
+  - **Additional Recommendations:** 
+    - Ensure robust data normalization to prevent duplicate entries.
+    - Validate phone number formats across tenants to maintain consistency.
 - [ ] WF16 — Inbound Call Router (Day 3)
   - **Security:** Implement failover mechanisms to ensure call routing continuity.
   - *Concurrency Handling*: Implement rate limiting to manage simultaneous inbound calls.
+  - **Additional Recommendations:**
+    - Implement failover mechanisms to ensure call routing continuity.
 - [ ] WF17 — Voice Orchestrator (Day 4)
 - [ ] WF18 — Scheduling Workflow (Day 5)
 - [ ] WF22 — Call Wrap-Up (Day 7)
