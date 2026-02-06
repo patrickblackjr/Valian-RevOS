@@ -1854,8 +1854,11 @@ Each sprint follows the same pattern:
   - **Additional Recommendations:**
     - Implement failover mechanisms to ensure call routing continuity.
 - [ ] WF17 — Voice Orchestrator (Day 4)
+  - **Infrastructure:** Focus on setting up the voice provider and ensuring ASR/TTS configurations are correct.
 - [ ] WF18 — Scheduling Workflow (Day 5)
+  - **Infrastructure:** Ensure robust data validation and error handling for scheduling conflicts.
 - [ ] WF22 — Call Wrap-Up (Day 7)
+  - **Audit Logging:** Ensure all workflows log events to the `workflow_audit_log` for traceability.
 
 **Current Phase:** Day 1 — Infrastructure & Project Management
 
@@ -1865,6 +1868,13 @@ Each sprint follows the same pattern:
 - Day 1 infrastructure workflows complete (WF106, WF103, WF11)
 - Day 1 project management workflows in progress (WF200-206)
 - No blockers currently
+
+**Immediate Plan:**
+1. **WF109 Identity Resolution**: Critical for mapping phone numbers to lead IDs, foundation for subsequent workflows.
+2. **WF16 Inbound Call Router**: Essential for integrating voice functions.
+3. **WF17 Voice Orchestrator**: Integrate the voice AI with the system.
+4. **WF18 Scheduling Workflow**: Handle booking logic with robust data validation.
+5. **WF22 Call Wrap-Up**: Summarize calls and update lead statuses.
 <!-- BOT-EDITABLE-END -->
 
 ---
