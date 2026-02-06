@@ -1848,13 +1848,22 @@ Each sprint follows the same pattern:
   - **Additional Recommendations:** 
     - Ensure robust data normalization to prevent duplicate entries.
     - Validate phone number formats across tenants to maintain consistency.
+  - **Alerting and Monitoring:** Implement more robust health checks. Consider using tools like PagerDuty for critical alerts and Sentry for error tracking.
+  - **Data Integrity and Idempotency:** Ensure the `idempotency_keys` table is actively used to prevent duplicate processing.
+  - **Security Enhancements:** Enforce Row-Level Security (RLS) policies on all tables storing sensitive data.
 - [ ] WF16 — Inbound Call Router (Day 3)
   - **Security:** Implement failover mechanisms to ensure call routing continuity.
   - *Concurrency Handling*: Implement rate limiting to manage simultaneous inbound calls.
   - **Additional Recommendations:**
     - Implement failover mechanisms to ensure call routing continuity.
+  - **Alerting and Monitoring:** Set up alerts for high latency or error rates to catch issues early.
+  - **Data Integrity and Idempotency:** Ensure the `idempotency_keys` table is actively used to prevent duplicate processing.
+  - **Security Enhancements:** Rotate API keys and credentials regularly.
 - [ ] WF17 — Voice Orchestrator (Day 4)
   - **Infrastructure:** Focus on setting up the voice provider and ensuring ASR/TTS configurations are correct.
+  - **Alerting and Monitoring:** Implement more robust health checks. Consider using tools like PagerDuty for critical alerts and Sentry for error tracking.
+  - **Data Integrity and Idempotency:** Ensure the `idempotency_keys` table is actively used to prevent duplicate processing.
+  - **Security Enhancements:** Enforce Row-Level Security (RLS) policies on all tables storing sensitive data.
 - [ ] WF18 — Scheduling Workflow (Day 5)
   - **Infrastructure:** Ensure robust data validation and error handling for scheduling conflicts.
 - [ ] WF22 — Call Wrap-Up (Day 7)
