@@ -1827,7 +1827,7 @@ Each sprint follows the same pattern:
 > Do not edit manually — the bot manages content between the markers below.
 
 <!-- BOT-EDITABLE-START -->
-**Last Updated:** 2023-11-02T22:00Z by RevOS Bot
+**Last Updated:** 2026-02-06T22:00Z by RevOS Bot
 
 **Build Progress (Day 1-10 MVP Sprint):**
 - [x] WF106 v5.0 — Schema Auto-Builder (Day 1)
@@ -1841,7 +1841,13 @@ Each sprint follows the same pattern:
 - [ ] WF204/205 — Monitoring (Day 1)
 - [ ] WF206 — Change Log (Day 1)
 - [ ] WF109 — Identity Resolution (Day 2)
+  - **Security:** Ensure phone numbers are normalized and securely stored. Implement rate limiting to prevent abuse.
+  - **Infrastructure:** Use consistent hashing for lead identification and ensure logging for all identity resolution attempts.
+  - *Ensure Idempotency*: Use idempotency keys to prevent duplicate lead creation when resolving identities.
+  - *Audit Logging*: Log each identity resolution attempt in `workflow_audit_log` for traceability.
 - [ ] WF16 — Inbound Call Router (Day 3)
+  - **Security:** Implement failover mechanisms to ensure call routing continuity.
+  - *Concurrency Handling*: Implement rate limiting to manage simultaneous inbound calls.
 - [ ] WF17 — Voice Orchestrator (Day 4)
 - [ ] WF18 — Scheduling Workflow (Day 5)
 - [ ] WF22 — Call Wrap-Up (Day 7)
