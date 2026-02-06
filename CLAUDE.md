@@ -1,6 +1,6 @@
 # RevOS: Revenue Operating System for Dental Practices
 
-**Last Updated:** 2026-02-04
+**Last Updated:** 2026-02-06
 **Version:** 1.0 (Day 1 - Foundation)
 **Status:** Active Development - Day 1-10 MVP Sprint
 
@@ -179,7 +179,7 @@ n8n: Send confirmation
 |-----------|-----------|---------|
 | **Database** | Supabase (managed PostgreSQL) | System of record with Row-Level Security for multi-tenancy |
 | **Workflow Engine** | n8n (cloud: valiansystems.app.n8n.cloud) | Primary development environment, 90% of business logic |
-| **Voice/Calls** | Vapi.ai (recommended) or Bland.ai | AI phone receptionists with ASR/TTS/LLM integration |
+| **Voice/Calls** | Vapi.ai (recommended) or Bland.ai or eleven labs | AI phone receptionists with ASR/TTS/LLM integration |
 | **SMS** | Twilio (primary) + Telnyx (backup) | Messaging, phone numbers (+1 917 993 5081) |
 | **Email** | SendGrid or Resend | Transactional email, nurture sequences |
 | **Storage** | Supabase Storage | Call recordings, intake forms, documents |
@@ -777,13 +777,13 @@ RevOS automates **operational tasks** that staff currently perform manually:
 - Project ID: vjnvddebjrrcgrapuhvn
 - DB Host: db.vjnvddebjrrcgrapuhvn.supabase.co
 - DB Port: 6543
-- Anon Key: (stored in 1Password - safe to commit)
+- Anon Key: sb_publishable_GSei-8rGkFUJ-sbXmJWquw_3Cci2aNu
 - Service Role Key: (stored in 1Password - SECRET - never commit)
 - DB Password: (stored in 1Password - SECRET)
 
 **N8N CLOUD:**
 - Instance URL: https://valiansystems.app.n8n.cloud/
-- API Key: (stored in 1Password - SECRET - generate in n8n settings)
+- API Key: (stored in 1Password - SECRET)
 
 **TWILIO:**
 - Account SID: (stored in 1Password - SECRET)
@@ -792,9 +792,18 @@ RevOS automates **operational tasks** that staff currently perform manually:
 
 **SLACK:**
 - Workspace: Valian Systems
-- #revos-build channel ID: (TBD)
-- #revos-alerts channel ID: (TBD)
-- Webhook URL: (stored in 1Password - SECRET)
+- #revos-build channel ID: C0ADXPPPHK2
+- #revos-alerts channel ID: C0AD73LFHE0
+- #revos-alerts Webhook: (stored in 1Password - SECRET)
+- #revos-build Webhook: (stored in 1Password - SECRET)
+- Slack App: RevOS
+- Bot Token: (stored in 1Password - SECRET)
+- Signing Secret: (stored in 1Password - SECRET)
+- Team ID: T0A30GW2Y10
+
+**OPENAI:**
+- API Key: (stored in 1Password - SECRET)
+- Used for: Whisper voice transcription in WF42
 
 **VAPI (Day 4 - TBD):**
 - API Key: (stored in 1Password - SECRET)
@@ -803,7 +812,7 @@ RevOS automates **operational tasks** that staff currently perform manually:
 
 **GITHUB:**
 - Repo: https://github.com/Valian-Systems/Valian-RevOS/
-- PAT: (stored in 1Password - SECRET - for WF103 auto-commits)
+- PAT: (stored in 1Password - SECRET)
 
 **DO NOT put actual secrets in this file or commit to GitHub.**
 
@@ -811,7 +820,7 @@ RevOS automates **operational tasks** that staff currently perform manually:
 
 ## 12. Current Status & Next Steps
 
-**Last Updated:** 2026-02-04
+**Last Updated:** 2026-02-06
 **Current Phase:** Day 1 - Foundation & Automation Infrastructure
 
 **Completed:**
@@ -862,6 +871,990 @@ RevOS automates **operational tasks** that staff currently perform manually:
    - Reliability first, then add features
    - Retention depends on "it just works"
    - RevOS is infrastructure, not a toy
+
+---
+
+## 14. Day 1-10 Detailed Execution Guide
+
+### THE FULL PICTURE
+
+Day 1 isn't just about database and workflows. It's about building the entire operating system that runs this project. By end of Day 1, you should have:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        REVOS BUILD INFRASTRUCTURE                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  SCHEMA LAYER                 WORKFLOW LAYER              VERSION CONTROL   │
+│  ────────────                 ──────────────              ───────────────   │
+│  WF106 Schema Builder         n8n Instance                WF103 GitHub Sync │
+│  Supabase Postgres            Workflow Library            Auto-commit       │
+│  Migration Ledger             Credential Store            Branch Management │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  PROJECT MANAGEMENT           COMMUNICATION               MONITORING        │
+│  ──────────────────           ─────────────               ──────────────    │
+│  WF200 Task Tracker           WF201 Daily Digest          WF204 Health Check│
+│  WF202 Sprint Manager         Slack #revos-build          WF205 Error Alert │
+│  Notion/Supabase Tasks        Email Summaries             Uptime Monitoring │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  DOCUMENTATION                AI COORDINATION             AUDIT             │
+│  ─────────────                ───────────────             ─────             │
+│  WF104 Auto-Doc Generator     Claude Context Sync         WF206 Change Log  │
+│  README auto-update           Conversation Memory         Decision Ledger   │
+│  API docs from schema         Task Handoff State          Time Tracking     │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Day 1 Automation Workflows (Complete List)
+
+**Infrastructure Tier (Must Have)**
+
+| WF# | Name | Purpose | Priority |
+|-----|------|---------|----------|
+| WF106 | Schema Auto-Builder | Claude sends blueprint → Supabase builds tables | CRITICAL |
+| WF103 | GitHub Auto-Export | All workflows auto-commit to repo | CRITICAL |
+| WF11 | Event Logger | Core audit trail for everything | CRITICAL |
+
+**Project Management Tier (Should Have)**
+
+| WF# | Name | Purpose | Priority |
+|-----|------|---------|----------|
+| WF200 | Task Tracker | Internal todo list with status, owner, due dates | HIGH |
+| WF201 | Daily Digest | End-of-day summary sent to Slack/email | HIGH |
+| WF202 | Sprint Manager | 10-day sprint with milestones, burndown tracking | HIGH |
+| WF203 | Blocker Alert | If a task is stuck >4 hours, alert immediately | MEDIUM |
+
+**Documentation Tier (Nice to Have Day 1)**
+
+| WF# | Name | Purpose | Priority |
+|-----|------|---------|----------|
+| WF206 | Change Log | Daily log of what changed (schema, workflows, code) | MEDIUM |
+
+**Monitoring Tier (Can Add Day 2)**
+
+| WF# | Name | Purpose | Priority |
+|-----|------|---------|----------|
+| WF204 | Health Check | Verify all systems running (n8n, Supabase, Twilio) | MEDIUM |
+| WF205 | Error Alert | Any workflow failure → immediate Slack alert | MEDIUM |
+
+### WF200 — Task Tracker
+
+**What It Does:**
+A simple but complete task management system that lives in Supabase and is operated through n8n. Claude can create tasks, you can update them, and everything syncs to a Slack channel.
+
+**Database Schema (deployed via WF106):**
+
+```sql
+-- Build tasks
+CREATE TABLE build_tasks (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+    -- Task identity
+    title           TEXT NOT NULL,
+    description     TEXT,
+    task_type       TEXT NOT NULL DEFAULT 'task'
+                    CHECK (task_type IN ('task', 'bug', 'feature', 'research', 'review')),
+
+    -- Hierarchy
+    parent_task_id  UUID REFERENCES build_tasks(id),  -- subtasks
+    sprint_day      INT CHECK (sprint_day BETWEEN 1 AND 10),  -- which day of the 10-day sprint
+
+    -- Assignment
+    owner           TEXT NOT NULL DEFAULT 'claude',  -- 'claude', 'robert', 'system'
+
+    -- Status
+    status          TEXT NOT NULL DEFAULT 'todo'
+                    CHECK (status IN ('todo', 'in_progress', 'blocked', 'in_review', 'done', 'cancelled')),
+    blocked_reason  TEXT,  -- why it's blocked (if status = 'blocked')
+
+    -- Priority
+    priority        TEXT NOT NULL DEFAULT 'medium'
+                    CHECK (priority IN ('critical', 'high', 'medium', 'low')),
+
+    -- Timing
+    estimated_hours DECIMAL(4,1),
+    actual_hours    DECIMAL(4,1),
+    due_date        DATE,
+    started_at      TIMESTAMPTZ,
+    completed_at    TIMESTAMPTZ,
+
+    -- Dependencies
+    depends_on      UUID[],  -- array of task IDs that must complete first
+
+    -- Metadata
+    tags            TEXT[],  -- ['database', 'workflow', 'voice', etc.]
+    notes           TEXT,
+
+    -- Audit
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_by      TEXT NOT NULL DEFAULT 'claude'
+);
+
+CREATE INDEX idx_tasks_status ON build_tasks(status);
+CREATE INDEX idx_tasks_sprint_day ON build_tasks(sprint_day);
+CREATE INDEX idx_tasks_owner ON build_tasks(owner);
+CREATE INDEX idx_tasks_priority ON build_tasks(priority, status);
+```
+
+**How It Works:**
+
+Claude creates tasks:
+```json
+{
+  "action": "create_task",
+  "task": {
+    "title": "Build WF109 Identity Resolution",
+    "description": "Workflow that maps phone number to lead_id, creates if missing",
+    "task_type": "feature",
+    "sprint_day": 2,
+    "owner": "claude",
+    "priority": "high",
+    "estimated_hours": 2,
+    "depends_on": ["<WF11_task_id>"],
+    "tags": ["workflow", "identity", "mvp"]
+  }
+}
+```
+
+You update status via Slack:
+```
+/task done WF109
+/task blocked WF17 "waiting for Vapi API key"
+/task review WF18
+```
+
+Or Claude updates via WF200:
+```json
+{
+  "action": "update_task",
+  "task_id": "...",
+  "status": "done",
+  "actual_hours": 1.5,
+  "completed_at": "2026-02-04T18:30:00Z"
+}
+```
+
+**Views You Get:**
+
+Sprint Board (by day):
+```
+DAY 1                    DAY 2                    DAY 3
+─────                    ─────                    ─────
+✅ WF106 Schema Builder  🔄 WF109 Identity        ⬜ WF16 Call Router
+✅ WF103 GitHub Export   ⬜ Test identity flow    ⬜ Twilio config
+🔄 WF11 Event Logger     ⬜ Edge case handling    ⬜ Test inbound calls
+⬜ WF200 Task Tracker
+⬜ WF201 Daily Digest
+```
+
+Burndown:
+```
+Day 1: 8 tasks planned, 5 done, 2 in progress, 1 blocked
+Day 2: 4 tasks planned, 0 done (not started)
+```
+
+### WF201 — Daily Digest
+
+**What It Does:**
+Every day at a scheduled time (e.g., 6 PM your timezone), WF201 runs and sends you a summary of everything that happened that day.
+
+**The Digest Includes:**
+```
+═══════════════════════════════════════════════════════════════
+REVOS BUILD — DAILY DIGEST — DAY 1 (Feb 4, 2026)
+═══════════════════════════════════════════════════════════════
+
+📊 SPRINT STATUS
+   Day 1 of 10 | 5 of 8 tasks complete | On track ✅
+
+✅ COMPLETED TODAY
+   • WF106 Schema Auto-Builder deployed
+   • WF103 GitHub Auto-Export deployed
+   • Foundation schema (10 tables) created via WF106
+   • Demo tenant seeded
+   • WF11 Event Logger deployed and tested
+
+🔄 IN PROGRESS
+   • WF200 Task Tracker — 80% complete, finishing task creation API
+   • WF201 Daily Digest — this workflow, testing now
+
+🚫 BLOCKED
+   • None
+
+📝 SCHEMA CHANGES
+   • Migration 001_foundation_schema applied
+   • Tables created: tenants, leads, call_sessions, conversation_events,
+     appointments, scheduling_slots, providers, alerts, idempotency_keys,
+     schema_migrations
+
+🔀 GITHUB COMMITS
+   • 3 commits to main branch
+   • Files: WF106.json, WF103.json, WF011.json, 001_foundation_schema.sql
+
+⏰ TIME TRACKED
+   • Claude: 4.5 hours
+   • Robert: 2 hours (setup, credential config, testing)
+   • Total: 6.5 hours
+
+📅 TOMORROW (DAY 2)
+   • WF109 Identity Resolution
+   • Test: new caller → new lead
+   • Test: returning caller → same lead
+   • Edge case handling
+
+⚠️ RISKS / NOTES
+   • None identified
+
+═══════════════════════════════════════════════════════════════
+```
+
+**Delivery Options:**
+- **Slack** — posts to #revos-build channel
+- **Email** — sends to your email
+- **Both** — Slack for quick view, email for archive
+
+**Trigger Options:**
+- **Scheduled** — runs at 6 PM daily automatically
+- **On-demand** — you type /digest in Slack and it runs immediately
+- **On sprint day complete** — when all tasks for a day are done
+
+### WF202 — Sprint Manager
+
+**What It Does:**
+Manages the 10-day sprint lifecycle:
+1. Loads the day's tasks when the day starts
+2. Tracks progress throughout the day
+3. Detects if we're falling behind
+4. Adjusts the plan if needed
+
+**Sprint Configuration:**
+```json
+{
+  "sprint": {
+    "name": "MVP Sprint 1",
+    "start_date": "2026-02-04",
+    "end_date": "2026-02-13",
+    "days": 10,
+    "working_hours_per_day": 4,
+    "goals": [
+      "Inbound call → AI answers → books appointment → alerts owner",
+      "Every call logged in conversation_events",
+      "Demo video recorded"
+    ]
+  },
+  "milestones": [
+    {"day": 1, "name": "Infrastructure Complete", "tasks": ["WF106", "WF103", "WF11"]},
+    {"day": 3, "name": "Calls Hit System", "tasks": ["WF16", "WF109", "Twilio"]},
+    {"day": 6, "name": "End-to-End Booking", "tasks": ["WF17", "WF18", "Integration"]},
+    {"day": 10, "name": "Demo Ready", "tasks": ["Hardening", "Recording", "Lock"]}
+  ]
+}
+```
+
+**Daily Sprint Check (runs at 9 AM):**
+```
+═══════════════════════════════════════════════════════════════
+SPRINT CHECK — DAY 2 START
+═══════════════════════════════════════════════════════════════
+
+📍 WHERE WE ARE
+   Day 2 of 10 | MVP Sprint 1
+
+📋 TODAY'S TASKS
+   1. [ ] WF109 Identity Resolution (owner: claude, est: 2h)
+   2. [ ] Test new caller flow (owner: robert, est: 0.5h)
+   3. [ ] Test returning caller flow (owner: robert, est: 0.5h)
+   4. [ ] Edge case handling (owner: claude, est: 1h)
+
+⚡ DEPENDENCIES
+   • WF109 depends on WF11 ✅ (complete)
+
+🎯 TODAY'S GOAL
+   "When a phone number comes in, we can identify or create the lead"
+
+📊 SPRINT HEALTH
+   Velocity: on track
+   Burndown: 5/40 tasks complete (12.5%)
+   Expected: 8/40 by end of Day 1 → we're slightly ahead ✅
+
+═══════════════════════════════════════════════════════════════
+```
+
+**Falling Behind Detection:**
+If by noon, less than 50% of the day's tasks are started:
+```
+⚠️ SPRINT ALERT — DAY 2
+
+Progress check (12:00 PM):
+- 0 of 4 tasks started
+- Expected: at least 2 tasks in progress by now
+
+Possible causes:
+- Blocker not reported?
+- Scope creep?
+- Waiting on something?
+
+Action needed: Update task status or report blocker
+```
+
+### WF203 — Blocker Alert
+
+**What It Does:**
+If any task has status = 'blocked' for more than 4 hours without resolution, WF203 sends an immediate alert.
+
+```
+🚨 BLOCKER ALERT
+
+Task: WF17 Voice Orchestrator
+Blocked for: 4 hours 23 minutes
+Reason: "Waiting for Vapi API key"
+Owner: Claude
+
+This is blocking:
+- WF18 Scheduling integration
+- WF22 Call Wrap-Up
+- Day 4, 5, 6 tasks
+
+Suggested action:
+- Robert: Check Vapi account for API key
+- If no key available, consider switching to Retell
+```
+
+### WF206 — Change Log
+
+**What It Does:**
+Automatically logs every change across the system into a single audit table. You can query "what changed yesterday?" and get a complete answer.
+
+**Change Types Tracked:**
+```sql
+CREATE TABLE change_log (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+    -- What changed
+    change_type     TEXT NOT NULL
+                    CHECK (change_type IN (
+                        'schema_migration',    -- WF106 ran
+                        'workflow_created',    -- new workflow in n8n
+                        'workflow_updated',    -- existing workflow modified
+                        'workflow_deleted',    -- workflow removed
+                        'github_commit',       -- WF103 pushed to GitHub
+                        'task_created',        -- new build task
+                        'task_status_change',  -- task moved status
+                        'config_change',       -- credentials, settings changed
+                        'error',               -- something failed
+                        'manual_intervention'  -- Robert did something manually
+                    )),
+
+    -- Details
+    entity_type     TEXT,  -- 'workflow', 'table', 'task', 'credential'
+    entity_id       TEXT,  -- WF106, leads, task-uuid, etc.
+    entity_name     TEXT,  -- human readable
+
+    -- What happened
+    description     TEXT NOT NULL,
+    details         JSONB,  -- full payload of the change
+
+    -- Who/what made the change
+    actor           TEXT NOT NULL,  -- 'claude', 'robert', 'wf106', 'wf103', 'system'
+
+    -- Timing
+    occurred_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_changelog_type ON change_log(change_type, occurred_at DESC);
+CREATE INDEX idx_changelog_date ON change_log(occurred_at DESC);
+CREATE INDEX idx_changelog_actor ON change_log(actor);
+```
+
+**Example Entries:**
+
+| occurred_at | change_type | entity_name | description | actor |
+|-------------|-------------|-------------|-------------|-------|
+| 10:15 AM | schema_migration | 001_foundation | Created 10 tables, 15 indexes | wf106 |
+| 10:32 AM | workflow_created | WF011 | Event Logger deployed | claude |
+| 10:33 AM | github_commit | main | Added WF011_event_logger.json | wf103 |
+| 11:45 AM | task_status_change | WF106 task | Status: in_progress → done | claude |
+| 2:30 PM | error | WF103 | GitHub push failed: auth error | wf103 |
+| 2:35 PM | manual_intervention | GitHub credential | Robert updated PAT token | robert |
+| 2:36 PM | github_commit | main | Retry successful after credential fix | wf103 |
+
+### Day 1 Execution Blocks (Final)
+
+**Block A: Accounts + Credentials (1 hour)**
+- Supabase, n8n, Twilio, Slack, GitHub accounts
+- All credentials in password manager
+- All credentials added to n8n
+
+**Block B: Claude ↔ n8n Connection (30 min – 1 hour)**
+- n8n MCP skill uploaded
+- Connection tested
+- Or: manual import fallback confirmed
+
+**Block C: WF106 Schema Builder (1.5 hours)**
+- WF106 deployed
+- schema_migrations table created
+- Foundation schema deployed via WF106
+- Demo tenant seeded
+
+**Block D: WF103 GitHub Sync (1 hour)**
+- WF103 deployed
+- Connected to GitHub repo
+- Test workflow auto-committed
+- Running on 15-minute schedule
+
+**Block E: Project Management (2 hours)**
+- build_tasks table created via WF106
+- change_log table created via WF106
+- WF200 Task Tracker deployed
+- WF201 Daily Digest deployed
+- WF202 Sprint Manager deployed
+- WF203 Blocker Alert deployed
+- WF206 Change Log deployed
+- Sprint 1 tasks loaded
+
+**Block F: WF11 + Verification (1 hour)**
+- WF11 Event Logger deployed
+- Test event written successfully
+- Idempotency verified
+- All workflows auto-committed to GitHub
+- Daily digest sent (first one!)
+
+**TOTAL: 7–9 hours**
+
+### Day 1 Deliverables Checklist
+
+**In Supabase:**
+- 10 product tables (foundation schema)
+- 2 infrastructure tables (build_tasks, change_log)
+- 1 system table (schema_migrations)
+- Demo tenant with provider and scheduling slots
+- Test events in conversation_events
+
+**In n8n:**
+- WF106 Schema Auto-Builder
+- WF103 GitHub Auto-Export
+- WF200 Task Tracker
+- WF201 Daily Digest
+- WF202 Sprint Manager
+- WF203 Blocker Alert
+- WF206 Change Log
+- WF11 Event Logger
+
+**In GitHub:**
+- All SQL migrations
+- All workflow JSON files
+- Documentation files
+- Automatically updated
+
+**In Slack:**
+- #revos-build channel receiving: Task updates, Blocker alerts, Daily digests, Error notifications
+
+### Daily Rhythm After Day 1
+
+```
+9:00 AM  — Sprint Check arrives (WF202)
+           "Here's what's planned for today"
+           You review, adjust priorities if needed
+
+DURING DAY — Claude builds
+             You test
+             Tasks update automatically
+             Changes log automatically
+             GitHub commits automatically
+
+             If blocked → alert within 4 hours (WF203)
+             If error → immediate Slack (WF205)
+
+6:00 PM  — Daily Digest arrives (WF201)
+           "Here's what happened today"
+           "Here's what's planned tomorrow"
+           You review, flag any concerns
+
+OVERNIGHT — System is quiet
+            Scheduled exports run
+            Health checks run (future)
+```
+
+### Order of Operations for Day 1
+
+This is the exact sequence Claude will follow:
+1. Create schema_migrations table (manual SQL, one time bootstrap)
+2. Deploy WF106 (Schema Builder)
+3. Use WF106 to create: build_tasks, change_log tables
+4. Use WF106 to create: foundation schema (10 product tables)
+5. Use WF106 to seed: demo tenant
+6. Deploy WF103 (GitHub Sync)
+7. Deploy WF200 (Task Tracker)
+8. Deploy WF201 (Daily Digest)
+9. Deploy WF202 (Sprint Manager)
+10. Deploy WF203 (Blocker Alert)
+11. Deploy WF206 (Change Log)
+12. Deploy WF11 (Event Logger)
+13. Load Sprint 1 tasks into build_tasks
+14. Run first Daily Digest (confirms everything works)
+15. Verify all workflows committed to GitHub
+
+If any step fails, we stop, diagnose, fix, then continue. No moving forward with broken infrastructure.
+
+---
+
+### Day 2 — Identity Resolution (WF109)
+
+**GOAL:** By end of day: when a phone number comes in, the system either finds the existing lead or creates a new one. Every resolution is logged.
+
+**What You Do:**
+1. Import the WF109 workflow JSON into n8n
+2. **Test Case 1 — New caller:**
+   - Trigger WF109 with phone: "+15551234567", tenant_id: "00000000-0000-0000-0000-000000000001"
+   - Check Supabase → leads table → new row should exist
+   - Check conversation_events → "identity.resolved" event with payload showing "created: true"
+3. **Test Case 2 — Returning caller:**
+   - Trigger WF109 again with the SAME phone number
+   - Check leads table → still only ONE row (not duplicated)
+   - Check conversation_events → new "identity.resolved" event with "created: false"
+4. **Test Case 3 — Different tenant isolation:**
+   - If you create a second test tenant, the same phone number should create a separate lead
+
+**What Claude Builds:**
+- WF109 Identity Resolution n8n workflow JSON
+- Test payloads for all three test cases
+- Supabase function for upsert-or-find lead (if needed)
+
+**Verify Before Moving On:**
+- [ ] New phone → new lead created
+- [ ] Same phone → same lead returned (no duplicate)
+- [ ] Every resolution logged in conversation_events
+- [ ] lead_id is returned and usable by downstream workflows
+
+---
+
+### Day 3 — Inbound Call Router (WF16) + Twilio Configuration
+
+**GOAL:** By end of day: when someone calls your Twilio number, n8n receives the webhook, creates a call_session, resolves identity, and logs everything. The call itself won't have AI yet — that's Day 4.
+
+**What You Do:**
+
+**Morning: Twilio Configuration**
+1. Log into Twilio Console (https://console.twilio.com)
+2. Go to Phone Numbers → Manage → Active Numbers → click your number
+3. Under "Voice Configuration":
+   - "A Call Comes In": Webhook
+   - URL: your n8n webhook URL for WF16 (I'll provide the exact path)
+   - HTTP Method: POST
+4. Under "Call Status Changes":
+   - URL: your n8n webhook URL for call status updates
+5. Save
+
+**Afternoon: Test Real Calls**
+1. Import WF16 workflow JSON into n8n
+2. Make sure WF16's webhook is active in n8n (it shows a "listening" URL)
+3. Call your Twilio number from your personal phone
+4. Check n8n → WF16 should have executed
+5. Check Supabase: call_sessions → new row, leads → new/existing row, conversation_events → "call.inbound" event
+
+**Also Today: Update Demo Tenant**
+```sql
+UPDATE tenants
+SET phone_number = '+1XXXXXXXXXX'  -- your Twilio number
+WHERE id = '00000000-0000-0000-0000-000000000001';
+```
+
+**What Claude Builds:**
+- WF16 Inbound Call Router n8n workflow JSON
+- Twilio webhook payload documentation
+- TwiML response for Day 3 (simple "please hold" or "thank you for calling")
+- Call status webhook handler
+
+**Verify Before Moving On:**
+- [ ] Calling Twilio number → n8n WF16 fires
+- [ ] call_session created with correct twilio_call_sid
+- [ ] Lead resolved (WF109 called successfully)
+- [ ] Events logged (call.inbound, identity.resolved)
+- [ ] Tenant phone_number updated
+
+---
+
+### Day 4 — Voice Orchestrator Skeleton (WF17)
+
+**GOAL:** By end of day: when someone calls, the AI answers with the practice greeting and can hold a basic conversation. No booking yet — just talk.
+
+**What You Do:**
+
+**Morning: Voice Provider Setup**
+1. Choose your voice AI provider (Vapi, Retell, or direct build)
+2. Configure the provider:
+   - Connect it to your Twilio number
+   - Set up the AI assistant with the system prompt
+   - Configure ASR (speech-to-text) settings
+   - Configure TTS (text-to-speech) voice selection
+3. The provider handles the real-time voice loop:
+   - Caller speaks → ASR → text
+   - Text → AI brain → response text
+   - Response text → TTS → speech back to caller
+
+**Afternoon: Integration + Testing**
+1. Import WF17 workflow JSON into n8n
+2. Connect WF17 to the voice provider's webhook/API
+3. Test call flow:
+   - Call your number
+   - AI should answer: "Hi, thanks for calling Bright Smile Dental! How can I help you today?"
+   - Say: "I'd like to book an appointment" → AI should acknowledge (but NOT actually book yet)
+   - Say: "What are your hours?" → AI should answer from tenant config
+4. Check that every utterance is logged via WF11
+
+**What Claude Builds:**
+- WF17 Voice Orchestrator n8n workflow JSON
+- Voice AI system prompt (personality, rules, boundaries)
+- Intent classification prompt
+- Integration guide for chosen voice provider
+
+**Verify Before Moving On:**
+- [ ] Call → AI answers with practice greeting
+- [ ] AI can hold basic conversation (greet, answer hours, handle "I don't know")
+- [ ] Every utterance logged in conversation_events
+- [ ] Intent is detected and logged
+- [ ] Call ends cleanly (no infinite loops, no crashes)
+
+---
+
+### Day 5 — Scheduling Logic (WF18)
+
+**GOAL:** By end of day: the scheduling workflow can find available slots, create appointments, and mark slots as booked. Not connected to voice yet — tested independently.
+
+**What You Do:**
+1. Import WF18 workflow JSON into n8n
+2. **Test Case 1 — Happy path booking:**
+   - Input: tenant_id, lead_id, provider_id, requested date ("tomorrow")
+   - WF18 finds next available slot → creates appointment → marks slot as booked → logs booking.created event
+   - Returns confirmation: "Dr. Chen, tomorrow at 2:00 PM"
+3. **Test Case 2 — No availability:**
+   - Book all slots for a given day (or use a day with no slots)
+   - WF18 should return: "No availability on that day, would another day work?"
+4. **Test Case 3 — Double-booking prevention:**
+   - Try to book the same slot twice
+   - PostgreSQL exclusion constraint should block it
+   - WF18 should handle the error gracefully
+
+**What Claude Builds:**
+- WF18 Scheduling n8n workflow JSON
+- Slot-finding SQL query (next available for provider + tenant)
+- Appointment creation with idempotency protection
+- Error handling for no-availability and double-booking scenarios
+
+**Verify Before Moving On:**
+- [ ] Available slot found and returned correctly
+- [ ] Appointment created in database
+- [ ] Slot marked as unavailable
+- [ ] Double-booking blocked by database constraint
+- [ ] No-availability handled gracefully (no crash)
+- [ ] All actions logged in conversation_events
+
+---
+
+### Day 6 — Connect Voice to Booking (WF17 → WF18)
+
+**GOAL:** By end of day: the end-to-end happy path works. Call → AI answers → caller says "book appointment" → AI finds slot → confirms → books. This is your core demo.
+
+**What You Do:**
+1. Update WF17 to call WF18 when booking intent is detected
+2. Update the voice AI prompt to handle the booking conversation:
+   - "When would you like to come in?"
+   - "I have an opening tomorrow at 2 PM with Dr. Chen. Would that work?"
+   - "Great, you're all set for tomorrow at 2 PM. We'll see you then!"
+3. Test the full flow — call your number:
+   - AI greets you → You say: "I'd like to book a cleaning" → AI asks when → You say: "Tomorrow afternoon" → AI offers a specific slot → You confirm → AI confirms back
+4. Do this 5 times with slight variations:
+   - "Book an appointment"
+   - "I need to see the dentist"
+   - "Can I come in this week?"
+   - "Do you have anything tomorrow?"
+   - "I need a cleaning"
+5. Check Supabase after each call: appointment exists, slot marked as booked, full conversation logged, call_session has outcome = "appointment_booked"
+
+**What Claude Builds:**
+- Updated WF17 with WF18 integration
+- Updated voice prompt with booking conversation flow
+- Booking confirmation message templates
+- Fallback handling (caller says something unexpected during booking)
+
+**Verify Before Moving On:**
+- [ ] End-to-end: call → book → confirmed (minimum 3 successful test calls)
+- [ ] AI handles "when would you like to come in?" naturally
+- [ ] AI reads back the correct date/time
+- [ ] Appointment exists in database after call
+- [ ] Conversation fully logged
+- [ ] No crashes on unexpected caller input
+
+---
+
+### Day 7 — Call Wrap-Up (WF22)
+
+**GOAL:** By end of day: every call gets a clean summary, outcome tag, and the lead's status is updated automatically.
+
+**What You Do:**
+1. Import WF22 workflow JSON into n8n
+2. WF22 should trigger automatically when a call ends
+3. What WF22 does:
+   - Reads all conversation_events for the call_session
+   - Generates a 2–3 sentence summary using AI
+   - Tags the outcome (appointment_booked, caller_hung_up, question_answered, etc.)
+   - Updates call_session with outcome + summary
+   - Updates lead status (new → appointment_set, etc.)
+   - Logs wrapup.completed event
+4. Test by making 3–4 calls with different outcomes:
+   - Call and book an appointment → outcome: appointment_booked
+   - Call and ask a question but don't book → outcome: question_answered
+   - Call and hang up quickly → outcome: caller_hung_up
+5. Check Supabase: call_sessions have outcome populated, leads show updated statuses, conversation_events has wrapup.completed events
+
+**What Claude Builds:**
+- WF22 Call Wrap-Up n8n workflow JSON
+- Summary generation prompt (concise, factual, no hallucination)
+- Outcome classification logic (deterministic rules first, AI backup)
+- Lead status transition map (what status changes are valid)
+
+**Verify Before Moving On:**
+- [ ] Every completed call has a summary
+- [ ] Outcomes are tagged correctly
+- [ ] Lead statuses update correctly
+- [ ] Summaries are factual (no invented information)
+- [ ] All wrap-up actions logged in conversation_events
+
+---
+
+### Day 8 — Alerts (WF42)
+
+**GOAL:** By end of day: every booking and missed call triggers a Slack notification. Practice owners see value instantly.
+
+**What You Do:**
+1. Import WF42 workflow JSON into n8n
+2. Add your Slack webhook credential in n8n
+3. WF42 should trigger automatically after WF22 completes
+4. Test — make a call and book:
+   - After the call ends, within 30 seconds your #revos-alerts Slack channel should show:
+   ```
+   ✅ Appointment Booked
+   Patient: John Smith (or "New Patient")
+   Time: Tomorrow, 2:00 PM
+   Provider: Dr. Sarah Chen
+   Summary: Caller requested a cleaning appointment...
+   ```
+5. Test — miss a call:
+   ```
+   ⚠️ Missed Call
+   From: +15551234567 (New Patient)
+   Time: Just now
+   Action needed: Follow up recommended
+   ```
+6. Verify no duplicate alerts: each call should produce exactly ONE alert. Check alerts table — each has a unique idempotency_key.
+
+**What Claude Builds:**
+- WF42 Alerts n8n workflow JSON
+- Slack message templates (booking + missed call)
+- Alert deduplication logic
+- Alert routing rules
+
+**Verify Before Moving On:**
+- [ ] Booking → Slack alert appears in < 60 seconds
+- [ ] Missed call → Slack alert appears
+- [ ] No duplicate alerts
+- [ ] Alerts logged in alerts table
+- [ ] Alert events logged in conversation_events
+
+---
+
+### Day 9 — Hardening + Edge Cases
+
+**GOAL:** By end of day: the system handles weird inputs, network issues, and unexpected caller behavior without crashing.
+
+**What You Do:**
+
+Edge case testing (you make these calls):
+- Call and say nothing (silence for 10 seconds)
+- Call and speak in a language other than English
+- Call and say something completely unrelated ("What's the weather?")
+- Call and immediately hang up (1–2 seconds)
+- Call and ask to book, then change your mind mid-booking
+- Call twice rapidly (within 30 seconds of each other)
+- Call from a blocked/unknown number if possible
+
+For each edge case, check:
+- Did the system crash? (Check n8n execution history)
+- Was the call logged? (Check conversation_events)
+- Was the outcome tagged correctly? (Check call_sessions)
+- Did it send an appropriate alert? (Check Slack)
+
+Latency check:
+- Time the AI's response after you finish speaking
+- Target: < 2 seconds for first response
+- If it's slow, we optimize
+
+**What Claude Builds:**
+- Error handling improvements based on edge case results
+- Retry logic for WF11 (event logging must never fail silently)
+- Timeout handling for WF17 (what if ASR takes too long)
+- Graceful degradation prompt ("I'm having trouble hearing you, could you repeat that?")
+- Unknown intent handler ("I'd be happy to help with scheduling. Would you like to book an appointment?")
+
+**Verify Before Moving On:**
+- [ ] Zero crashes from edge case testing
+- [ ] Every call (even weird ones) produces a log entry
+- [ ] AI handles silence, gibberish, and off-topic gracefully
+- [ ] Rapid successive calls don't cause race conditions
+- [ ] Response latency is acceptable (< 2–3 seconds)
+
+---
+
+### Day 10 — Demo Day
+
+**GOAL:** By end of day: you have a recorded demo you can send to prospects, a working live system, and a clear pitch.
+
+**What You Do:**
+
+**Morning: Demo Prep**
+1. Review the demo script (Claude provides this)
+2. Practice the demo call 3 times:
+   - Call as "Sarah, a new patient looking for a cleaning"
+   - Call as "Mike, wanting to know about availability this week"
+   - Call as a missed call (ring and hang up, show Slack alert)
+3. Set up screen recording:
+   - Record your phone screen (showing the dial + call)
+   - Record Slack on your computer (showing alerts appear in real-time)
+   - Record Supabase dashboard (showing data appear after calls)
+4. Do a dry run recording — watch it back — fix any awkward pauses
+
+**Afternoon: Record Final Demo**
+Record the final demo (3–5 minutes total):
+1. Intro: "This is RevOS. Watch what happens when a patient calls."
+2. Call 1: New patient books appointment (show Slack alert)
+3. Call 2: Quick question about hours (show it handles non-booking calls)
+4. Call 3: Missed call recovery alert in Slack
+5. Outro: "Every call is logged, every booking is confirmed, nothing falls through the cracks."
+
+**Evening: Lock + Document**
+- Export all n8n workflows as JSON → commit to GitHub
+- Take a snapshot of your Supabase schema
+- Update build-log.md with Day 10 status
+
+**What Claude Builds:**
+- Demo call script (exact words for demo scenarios)
+- Demo recording checklist
+- Landing page copy aligned to MVP capabilities
+- Pilot outreach email template (for contacting first 5–10 practices)
+- n8n workflow export script for GitHub
+- MVP completion audit checklist
+
+**MVP Is Complete When:**
+- [ ] Inbound call → AI answers → books appointment → alerts owner
+- [ ] Works 5+ times in a row without failure
+- [ ] Every call logged in conversation_events
+- [ ] Every booking creates an appointment row
+- [ ] Every booking/missed call triggers Slack alert
+- [ ] Demo video recorded and ready to share
+- [ ] All code in GitHub
+- [ ] You can explain to a dentist what this does in 30 seconds
+
+---
+
+### Daily Time Commitment
+
+| Day | Estimated Hours | Difficulty | What Makes It Hard |
+|-----|----------------|------------|-------------------|
+| 1 | 3–4 hours | Low | Just setup and running SQL |
+| 2 | 2–3 hours | Low | Importing + testing one workflow |
+| 3 | 3–4 hours | Medium | Twilio config can be fiddly |
+| 4 | 4–6 hours | High | Voice provider setup is the hardest day |
+| 5 | 3–4 hours | Medium | Logic-heavy but self-contained |
+| 6 | 4–5 hours | High | Integration testing, many things can break |
+| 7 | 2–3 hours | Medium | Straightforward if Days 4–6 are solid |
+| 8 | 2–3 hours | Low | Slack is simple |
+| 9 | 3–5 hours | Medium | Depends on how many bugs surface |
+| 10 | 3–4 hours | Low | Mostly rehearsal and recording |
+
+**Total: ~30–40 hours across 10 days (3–4 hours/day average)**
+
+### Credentials Reference
+
+*See Section 11 for full credentials reference.*
+
+Store all credentials in a password manager (1Password, Bitwarden, etc.), NOT in a Google Doc or text file.
+
+### What Happens After Day 10
+
+**Days 11–20: MVP+ Sprint (SMS + Email)**
+- WF24 (Inbound SMS)
+- WF25 (Outbound SMS sequences)
+- WF26 (Email sequences)
+- WF108 (Universal Outbox)
+- WF23 (Missed call recovery via SMS)
+- WF10 (Full consent management)
+
+**Days 21–30: V1 Sprint (Sellable Product)**
+- WF19 (Intake)
+- WF29/WF30 (Availability rules)
+- WF39 (Revenue attribution)
+- WF44 (Funnel metrics)
+- WF57 (Owner dashboard data feeds)
+
+Each sprint follows the same pattern:
+1. Claude designs the schema migration
+2. You run it in Supabase
+3. Claude builds the workflow JSON
+4. You import and test
+5. We verify together
+6. Commit to GitHub
+
+### Rules for the Entire Build
+
+1. **Never skip a verification step.** If something fails, we fix it before moving on.
+2. **Commit to GitHub every day.** Even if it's just SQL files and workflow exports.
+3. **If you're stuck for more than 30 minutes, ask Claude.** Don't guess.
+4. **No scope creep.** If it's not on today's list, it waits.
+5. **Test with real calls, not just mock data.** The demo must work on a real phone.
+6. **Keep credentials in a password manager.** Not in Slack, not in docs, not in chat.
+
+---
+
+## 15. Live Status & Schedule (Bot-Managed)
+
+> This section is automatically updated by the RevOS Slack bot via the `update:` command.
+> Do not edit manually — the bot manages content between the markers below.
+
+<!-- BOT-EDITABLE-START -->
+**Last Updated:** 2026-02-06T22:00Z by RevOS Bot
+
+**Build Progress (Day 1-10 MVP Sprint):**
+- [x] WF106 v5.0 — Schema Auto-Builder (Day 1)
+- [x] WF103 v5.0 — GitHub Auto-Export (Day 1)
+- [x] WF11 v2.0 — Event Logger (Day 1)
+- [x] WF201 v1.1 — Build Digest (Day 1)
+- [x] WF42 v3.2 — Slack Command Handler (Day 1)
+- [ ] WF200 — Task Tracker (Day 1)
+- [ ] WF202 — Sprint Manager (Day 1)
+- [ ] WF203 — Blocker Alert (Day 1)
+- [ ] WF204/205 — Monitoring (Day 1)
+- [ ] WF206 — Change Log (Day 1)
+- [ ] WF109 — Identity Resolution (Day 2)
+- [ ] WF16 — Inbound Call Router (Day 3)
+- [ ] WF17 — Voice Orchestrator (Day 4)
+- [ ] WF18 — Scheduling Workflow (Day 5)
+- [ ] WF22 — Call Wrap-Up (Day 7)
+
+**Current Phase:** Day 1 — Infrastructure & Project Management
+
+**Next Milestone:** Complete WF200-206, then proceed to Day 2 (WF109)
+
+**Schedule Notes:**
+- Day 1 infrastructure workflows complete (WF106, WF103, WF11)
+- Day 1 project management workflows in progress (WF200-206)
+- No blockers currently
+<!-- BOT-EDITABLE-END -->
 
 ---
 
