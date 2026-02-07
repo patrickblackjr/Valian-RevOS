@@ -1,0 +1,36 @@
+{
+  "wf_id": "WF201",
+  "wf_title": "12 hour Dev Sprint update",
+  "generated_at": "2026-02-07T08:58:07.327Z",
+  "node_count": 4,
+  "nodes": [
+    {
+      "order": 1,
+      "name": "Cron_Trigger",
+      "type": "Cron",
+      "purpose": "Trigger at 9AM and 9PM EST",
+      "doc_file": "01_Cron_Trigger.md"
+    },
+    {
+      "order": 2,
+      "name": "Query_Tasks",
+      "type": "Postgres",
+      "purpose": "Query pending/in-progress/completed tasks from last 12h",
+      "doc_file": "02_Query_Tasks.md"
+    },
+    {
+      "order": 3,
+      "name": "Format_Digest",
+      "type": "Code",
+      "purpose": "Format Layout C scorecard message",
+      "doc_file": "03_Format_Digest.md"
+    },
+    {
+      "order": 4,
+      "name": "Send_Slack",
+      "type": "HTTPRequest",
+      "purpose": "Post sprint update to #revos-build Slack channel",
+      "doc_file": "04_Send_Slack.md"
+    }
+  ]
+}

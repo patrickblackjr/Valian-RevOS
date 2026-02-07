@@ -1,0 +1,64 @@
+{
+  "wf_id": "WF103",
+  "wf_title": "GitHub Auto-Export",
+  "generated_at": "2026-02-07T08:58:07.247Z",
+  "node_count": 8,
+  "nodes": [
+    {
+      "order": 1,
+      "name": "Cron_Trigger",
+      "type": "Cron",
+      "purpose": "Trigger every 15 minutes",
+      "doc_file": "01_Cron_Trigger.md"
+    },
+    {
+      "order": 2,
+      "name": "Fetch_Workflows",
+      "type": "HTTPRequest",
+      "purpose": "Get workflow list from n8n API",
+      "doc_file": "02_Fetch_Workflows.md"
+    },
+    {
+      "order": 3,
+      "name": "Loop_Workflows",
+      "type": "SplitInBatches",
+      "purpose": "Process each workflow",
+      "doc_file": "03_Loop_Workflows.md"
+    },
+    {
+      "order": 4,
+      "name": "Fetch_Content",
+      "type": "HTTPRequest",
+      "purpose": "Get current GitHub file content",
+      "doc_file": "04_Fetch_Content.md"
+    },
+    {
+      "order": 5,
+      "name": "Compare_Content",
+      "type": "Code",
+      "purpose": "Compare base64 content to detect changes",
+      "doc_file": "05_Compare_Content.md"
+    },
+    {
+      "order": 6,
+      "name": "IF_Changed",
+      "type": "IF",
+      "purpose": "Branch on content change detected",
+      "doc_file": "06_IF_Changed.md"
+    },
+    {
+      "order": 7,
+      "name": "Push_ToGitHub",
+      "type": "HTTPRequest",
+      "purpose": "Push updated workflow JSON to GitHub",
+      "doc_file": "07_Push_ToGitHub.md"
+    },
+    {
+      "order": 8,
+      "name": "Send_Alert",
+      "type": "HTTPRequest",
+      "purpose": "Send Layout C scorecard to Slack",
+      "doc_file": "08_Send_Alert.md"
+    }
+  ]
+}

@@ -1,0 +1,405 @@
+{
+  "test_suite": "WF106 v2.0 Schema Auto-Builder Test Payloads",
+  "version": "2.0.0",
+  "created": "2026-02-05",
+
+  "test_cases": [
+    {
+      "name": "TEST 1: Minimal Input (Payload Only)",
+      "description": "Tests default envelope generation and auto-normalization",
+      "payload": {
+        "payload": {
+          "schema_version": "001",
+          "description": "Foundation Schema - 10 core tables",
+          "tables": [
+            {
+              "name": "tenants",
+              "columns": [
+                {
+                  "name": "name",
+                  "type": "TEXT",
+                  "not_null": true
+                },
+                {
+                  "name": "subscription_tier",
+                  "type": "TEXT",
+                  "not_null": true,
+                  "default": "essential"
+                },
+                {
+                  "name": "status",
+                  "type": "TEXT",
+                  "not_null": true,
+                  "default": "active"
+                }
+              ],
+              "indexes": [
+                {
+                  "name": "idx_tenants_status",
+                  "columns": ["status"]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expected_result": {
+        "status": "applied",
+        "tables_created": 1,
+        "default_columns_added": ["id", "tenant_id", "created_at", "updated_at", "deleted_at"],
+        "default_indexes_added": ["idx_tenants_tenant_id", "idx_tenants_created_at"],
+        "rls_enabled": true
+      }
+    },
+
+    {
+      "name": "TEST 2: Full Orchestration Envelope",
+      "description": "Tests complete input contract with all fields",
+      "payload": {
+        "meta": {
+          "workflow_name": "WF106",
+          "workflow_version": "2.0.0",
+          "workflow_run_id": "wr_test_12345",
+          "idempotency_key": "idem_wf106_test_002",
+          "trigger_source": "webhook",
+          "timestamp_utc": "2026-02-05T10:00:00.000Z",
+          "tenant_id": "t_demo_practice_001",
+          "environment": "prod"
+        },
+        "subject": {
+          "tenant_id": "t_demo_practice_001"
+        },
+        "payload": {
+          "schema_version": "002",
+          "description": "Extended Schema - Add users and patients tables",
+          "force_apply": false,
+          "tables": [
+            {
+              "name": "users",
+              "columns": [
+                {
+                  "name": "email",
+                  "type": "TEXT",
+                  "not_null": true,
+                  "unique": true
+                },
+                {
+                  "name": "role",
+                  "type": "TEXT",
+                  "not_null": true,
+                  "default": "staff"
+                },
+                {
+                  "name": "is_active",
+                  "type": "BOOLEAN",
+                  "not_null": true,
+                  "default": true
+                }
+              ],
+              "indexes": [
+                {
+                  "name": "idx_users_email",
+                  "columns": ["email"]
+                },
+                {
+                  "name": "idx_users_role",
+                  "columns": ["role"]
+                }
+              ]
+            },
+            {
+              "name": "patients",
+              "columns": [
+                {
+                  "name": "first_name",
+                  "type": "TEXT",
+                  "not_null": true
+                },
+                {
+                  "name": "last_name",
+                  "type": "TEXT",
+                  "not_null": true
+                },
+                {
+                  "name": "phone",
+                  "type": "TEXT"
+                },
+                {
+                  "name": "email",
+                  "type": "TEXT"
+                },
+                {
+                  "name": "date_of_birth",
+                  "type": "DATE"
+                },
+                {
+                  "name": "status",
+                  "type": "TEXT",
+                  "not_null": true,
+                  "default": "active"
+                }
+              ],
+              "indexes": [
+                {
+                  "name": "idx_patients_phone",
+                  "columns": ["phone"]
+                },
+                {
+                  "name": "idx_patients_email",
+                  "columns": ["email"]
+                },
+                {
+                  "name": "idx_patients_status",
+                  "columns": ["status"]
+                }
+              ]
+            }
+          ]
+        },
+        "context": {
+          "actor_id": "user_admin_001",
+          "validation_profile": "safe"
+        }
+      },
+      "expected_result": {
+        "status": "applied",
+        "tables_created": 2,
+        "indexes_created": 9,
+        "migration_logged": true
+      }
+    },
+
+    {
+      "name": "TEST 3: Idempotency Check (Re-apply Same Schema)",
+      "description": "Tests that re-applying schema version 001 returns noop",
+      "payload": {
+        "payload": {
+          "schema_version": "001",
+          "description": "Foundation Schema - 10 core tables (re-apply test)",
+          "tables": [
+            {
+              "name": "tenants",
+              "columns": [
+                {
+                  "name": "name",
+                  "type": "TEXT",
+                  "not_null": true
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expected_result": {
+        "status": "noop",
+        "summary": "Schema version 001 already applied (idempotent)",
+        "already_applied_at": "2026-02-05T...",
+        "migration_log_id": "..."
+      }
+    },
+
+    {
+      "name": "TEST 4: Validation Failure (Missing Required Fields)",
+      "description": "Tests input validation - missing schema_version",
+      "payload": {
+        "payload": {
+          "description": "Invalid Schema - Missing Version",
+          "tables": [
+            {
+              "name": "test_table",
+              "columns": []
+            }
+          ]
+        }
+      },
+      "expected_result": {
+        "status": "blocked",
+        "summary": "Input validation failed",
+        "validation_errors": [
+          "Missing required field: payload.schema_version"
+        ]
+      }
+    },
+
+    {
+      "name": "TEST 5: Validation Failure (Empty Tables Array)",
+      "description": "Tests input validation - empty tables array",
+      "payload": {
+        "payload": {
+          "schema_version": "999",
+          "description": "Invalid Schema - No Tables",
+          "tables": []
+        }
+      },
+      "expected_result": {
+        "status": "blocked",
+        "summary": "Input validation failed",
+        "validation_errors": [
+          "Missing or invalid field: payload.tables (must be non-empty array)"
+        ]
+      }
+    },
+
+    {
+      "name": "TEST 6: Complex Multi-Table Schema",
+      "description": "Tests full foundation schema with 5 tables",
+      "payload": {
+        "payload": {
+          "schema_version": "003",
+          "description": "Foundation Schema - Core 5 Tables",
+          "tables": [
+            {
+              "name": "tenants",
+              "columns": [
+                {"name": "name", "type": "TEXT", "not_null": true},
+                {"name": "subscription_tier", "type": "TEXT", "not_null": true, "default": "essential"},
+                {"name": "status", "type": "TEXT", "not_null": true, "default": "active"},
+                {"name": "phone_number", "type": "TEXT"},
+                {"name": "settings", "type": "JSONB", "default": "'{}'"}
+              ],
+              "indexes": [
+                {"name": "idx_tenants_status", "columns": ["status"]},
+                {"name": "idx_tenants_phone", "columns": ["phone_number"]}
+              ]
+            },
+            {
+              "name": "users",
+              "columns": [
+                {"name": "email", "type": "TEXT", "not_null": true, "unique": true},
+                {"name": "role", "type": "TEXT", "not_null": true, "default": "staff"},
+                {"name": "is_active", "type": "BOOLEAN", "not_null": true, "default": true},
+                {"name": "last_login_at", "type": "TIMESTAMPTZ"}
+              ],
+              "indexes": [
+                {"name": "idx_users_email", "columns": ["email"]},
+                {"name": "idx_users_role", "columns": ["role"]}
+              ]
+            },
+            {
+              "name": "patients",
+              "columns": [
+                {"name": "first_name", "type": "TEXT", "not_null": true},
+                {"name": "last_name", "type": "TEXT", "not_null": true},
+                {"name": "phone", "type": "TEXT"},
+                {"name": "email", "type": "TEXT"},
+                {"name": "date_of_birth", "type": "DATE"},
+                {"name": "status", "type": "TEXT", "not_null": true, "default": "active"}
+              ],
+              "indexes": [
+                {"name": "idx_patients_phone", "columns": ["phone"]},
+                {"name": "idx_patients_email", "columns": ["email"]},
+                {"name": "idx_patients_name", "columns": ["last_name", "first_name"]}
+              ]
+            },
+            {
+              "name": "events",
+              "columns": [
+                {"name": "event_type", "type": "TEXT", "not_null": true},
+                {"name": "event_data", "type": "JSONB", "not_null": true},
+                {"name": "patient_id", "type": "UUID"},
+                {"name": "user_id", "type": "UUID"},
+                {"name": "session_id", "type": "TEXT"}
+              ],
+              "indexes": [
+                {"name": "idx_events_type", "columns": ["event_type"]},
+                {"name": "idx_events_patient", "columns": ["patient_id"]},
+                {"name": "idx_events_created", "columns": ["created_at"]}
+              ]
+            },
+            {
+              "name": "appointments",
+              "columns": [
+                {"name": "patient_id", "type": "UUID", "not_null": true},
+                {"name": "provider_id", "type": "UUID"},
+                {"name": "appointment_type", "type": "TEXT", "not_null": true},
+                {"name": "scheduled_at", "type": "TIMESTAMPTZ", "not_null": true},
+                {"name": "duration_minutes", "type": "INTEGER", "not_null": true, "default": 60},
+                {"name": "status", "type": "TEXT", "not_null": true, "default": "pending"},
+                {"name": "confirmed_at", "type": "TIMESTAMPTZ"}
+              ],
+              "indexes": [
+                {"name": "idx_appointments_patient", "columns": ["patient_id"]},
+                {"name": "idx_appointments_scheduled", "columns": ["scheduled_at"]},
+                {"name": "idx_appointments_status", "columns": ["status"]}
+              ]
+            }
+          ]
+        }
+      },
+      "expected_result": {
+        "status": "applied",
+        "tables_created": 5,
+        "indexes_created": 23,
+        "rls_policies_created": 5
+      }
+    },
+
+    {
+      "name": "TEST 7: Column Name Normalization",
+      "description": "Tests that column names get normalized to snake_case",
+      "payload": {
+        "payload": {
+          "schema_version": "004",
+          "description": "Test Schema - Column Normalization",
+          "tables": [
+            {
+              "name": "TestTable",
+              "columns": [
+                {"name": "FirstName", "type": "TEXT"},
+                {"name": "last-name", "type": "TEXT"},
+                {"name": "Email Address", "type": "TEXT"},
+                {"name": "phone.number", "type": "TEXT"}
+              ]
+            }
+          ]
+        }
+      },
+      "expected_result": {
+        "status": "applied",
+        "normalized_table_name": "testtable",
+        "normalized_columns": [
+          "firstname",
+          "last_name",
+          "email_address",
+          "phone_number",
+          "id",
+          "tenant_id",
+          "created_at",
+          "updated_at",
+          "deleted_at"
+        ]
+      }
+    }
+  ],
+
+  "how_to_test": {
+    "method_1_n8n_ui": {
+      "step_1": "Open WF106 v2.0 workflow in n8n",
+      "step_2": "Click 'Test workflow' button",
+      "step_3": "Click on 'Webhook Trigger' node",
+      "step_4": "Click 'Listen for test event'",
+      "step_5": "Use curl or Postman to POST payload to webhook URL",
+      "step_6": "Observe response in n8n UI"
+    },
+    "method_2_curl": {
+      "step_1": "Get webhook URL from n8n (e.g., https://valiansystems.app.n8n.cloud/webhook/wf106-schema-builder-v2)",
+      "step_2": "Copy test payload from this file",
+      "step_3": "Run curl command:",
+      "example": "curl -X POST https://valiansystems.app.n8n.cloud/webhook/wf106-schema-builder-v2 -H 'Content-Type: application/json' -d '{...payload...}'"
+    },
+    "method_3_postman": {
+      "step_1": "Import Postman collection (create WF106_v2_Tests.postman_collection.json)",
+      "step_2": "Select test case",
+      "step_3": "Click 'Send'",
+      "step_4": "Verify response matches expected_result"
+    }
+  },
+
+  "verification_queries": {
+    "check_schema_migrations_log": "SELECT * FROM public.schema_migrations ORDER BY applied_at DESC LIMIT 10;",
+    "check_table_exists": "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = 'tenants';",
+    "check_rls_enabled": "SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public' AND tablename = 'tenants';",
+    "check_columns": "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'tenants' ORDER BY ordinal_position;",
+    "check_indexes": "SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'tenants';"
+  }
+}

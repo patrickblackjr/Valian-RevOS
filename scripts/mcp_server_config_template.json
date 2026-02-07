@@ -1,0 +1,41 @@
+{
+  "_comment": "MCP Server Configuration Template — ADD TO: ~/.claude/settings.json (merge with existing mcpServers)",
+  "_instructions": [
+    "1. Copy this file and replace placeholder values with real credentials from 1Password",
+    "2. Run: claude mcp add github",
+    "3. Run: claude mcp add n8n-mcp",
+    "4. Run: claude mcp add supabase",
+    "5. Or manually add to ~/.claude/settings.json",
+    "NEVER commit the filled-in version to this repo"
+  ],
+  "mcpServers": {
+    "github": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-e", "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "ghcr.io/github/github-mcp-server"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "<YOUR_GITHUB_PAT_FROM_1PASSWORD>"
+      }
+    },
+    "n8n-mcp": {
+      "command": "npx",
+      "args": ["n8n-mcp"],
+      "env": {
+        "MCP_MODE": "stdio",
+        "LOG_LEVEL": "error",
+        "DISABLE_CONSOLE_OUTPUT": "true",
+        "N8N_API_URL": "https://valiansystems.app.n8n.cloud",
+        "N8N_API_KEY": "<YOUR_N8N_API_KEY_FROM_1PASSWORD>"
+      }
+    },
+    "supabase": {
+      "command": "npx",
+      "args": ["-y", "@supabase/mcp-server-supabase@latest", "--access-token", "<YOUR_SUPABASE_ACCESS_TOKEN>"],
+      "env": {}
+    }
+  },
+  "_supabase_token_instructions": "Get token from: https://supabase.com/dashboard/account/tokens"
+}

@@ -33,9 +33,12 @@ tmp/
 temp/
 *.tmp
 
-# Claude Code local settings (keep for reference but don't sync)
-# .claude/
+# Claude Code local settings
+.claude/plans/
 
 # Build outputs
 dist/
 build/
+
+# Scaffold artifacts
+.scaffold_output.json

@@ -1,0 +1,71 @@
+{
+  "wf_id": "WF042",
+  "wf_title": "Slack Bot",
+  "generated_at": "2026-02-07T08:58:07.206Z",
+  "node_count": 9,
+  "nodes": [
+    {
+      "order": 1,
+      "name": "Webhook_SlackEvent",
+      "type": "Webhook",
+      "purpose": "Receive Slack event webhooks",
+      "doc_file": "01_Webhook_SlackEvent.md"
+    },
+    {
+      "order": 2,
+      "name": "Verify_Signature",
+      "type": "Code",
+      "purpose": "Verify Slack HMAC-SHA256 signature",
+      "doc_file": "02_Verify_Signature.md"
+    },
+    {
+      "order": 3,
+      "name": "Dedup_EventId",
+      "type": "Code",
+      "purpose": "Check event_id for deduplication",
+      "doc_file": "03_Dedup_EventId.md"
+    },
+    {
+      "order": 4,
+      "name": "Filter_BotMessages",
+      "type": "IF",
+      "purpose": "Filter out bot messages and subtypes",
+      "doc_file": "04_Filter_BotMessages.md"
+    },
+    {
+      "order": 5,
+      "name": "Load_RBAC",
+      "type": "Postgres",
+      "purpose": "Load user role from slack_rbac table",
+      "doc_file": "05_Load_RBAC.md"
+    },
+    {
+      "order": 6,
+      "name": "Load_ChannelPolicy",
+      "type": "Postgres",
+      "purpose": "Load channel tool permissions",
+      "doc_file": "06_Load_ChannelPolicy.md"
+    },
+    {
+      "order": 7,
+      "name": "Route_Intent",
+      "type": "Code",
+      "purpose": "Classify intent and route to tool",
+      "doc_file": "07_Route_Intent.md"
+    },
+    {
+      "order": 8,
+      "name": "AI_Chat",
+      "type": "HTTPRequest",
+      "purpose": "Claude API call for chat responses",
+      "doc_file": "08_AI_Chat.md"
+    },
+    {
+      "order": 9,
+      "name": "Send_Response",
+      "type": "HTTPRequest",
+      "purpose": "Post response to Slack channel/thread",
+      "doc_file": "09_Send_Response.md"
+    }
+  ]
+}

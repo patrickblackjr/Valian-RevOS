@@ -1,0 +1,23 @@
+{
+  "wf_id": "WF106",
+  "wf_slug": "schema-auto-builder",
+  "wf_title": "Schema Auto-Builder",
+  "wf_summary": "Receives JSON blueprint, generates SQL, applies to Supabase with conditional RLS auto-generation",
+  "version": "0.1.0",
+  "status": "Draft",
+  "owner": "Builder",
+  "created_at": "2026-02-07T08:58:07.287Z",
+  "node_count": 7,
+  "dependencies": {
+    "db_tables": [
+      "schema_migrations"
+    ],
+    "other_wfs": [
+      "WF011"
+    ],
+    "external": [
+      "supabase"
+    ]
+  },
+  "has_tests": true
+}

@@ -1,0 +1,29 @@
+{
+  "wf_id": "WF042",
+  "wf_slug": "slack-bot",
+  "wf_title": "Slack Bot",
+  "wf_summary": "Slack command handler with RBAC, AI chat, SQL sandbox, GitHub reads, and channel-aware personas",
+  "version": "0.1.0",
+  "status": "Draft",
+  "owner": "Builder",
+  "created_at": "2026-02-07T08:58:07.205Z",
+  "node_count": 9,
+  "dependencies": {
+    "db_tables": [
+      "slack_messages",
+      "bot_actions",
+      "slack_rbac",
+      "slack_channel_policy"
+    ],
+    "other_wfs": [
+      "WF011"
+    ],
+    "external": [
+      "slack",
+      "supabase",
+      "anthropic",
+      "github"
+    ]
+  },
+  "has_tests": true
+}

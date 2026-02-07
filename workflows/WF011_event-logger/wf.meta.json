@@ -1,0 +1,24 @@
+{
+  "wf_id": "WF011",
+  "wf_slug": "event-logger",
+  "wf_title": "Event Logger",
+  "wf_summary": "Immutable event ledger — logs every system action with T3 PII hashing and phi_access support",
+  "version": "0.1.0",
+  "status": "Draft",
+  "owner": "Builder",
+  "created_at": "2026-02-07T08:58:07.162Z",
+  "node_count": 9,
+  "dependencies": {
+    "db_tables": [
+      "events",
+      "event_metadata",
+      "idempotency_keys"
+    ],
+    "other_wfs": [],
+    "external": [
+      "supabase",
+      "slack"
+    ]
+  },
+  "has_tests": true
+}

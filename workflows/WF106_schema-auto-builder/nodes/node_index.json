@@ -1,0 +1,57 @@
+{
+  "wf_id": "WF106",
+  "wf_title": "Schema Auto-Builder",
+  "generated_at": "2026-02-07T08:58:07.287Z",
+  "node_count": 7,
+  "nodes": [
+    {
+      "order": 1,
+      "name": "Webhook_Trigger",
+      "type": "Webhook",
+      "purpose": "Receive schema blueprint JSON",
+      "doc_file": "01_Webhook_Trigger.md"
+    },
+    {
+      "order": 2,
+      "name": "Validate_Blueprint",
+      "type": "Code",
+      "purpose": "Validate blueprint structure and table names",
+      "doc_file": "02_Validate_Blueprint.md"
+    },
+    {
+      "order": 3,
+      "name": "Generate_SQL",
+      "type": "Code",
+      "purpose": "Generate CREATE TABLE SQL from blueprint",
+      "doc_file": "03_Generate_SQL.md"
+    },
+    {
+      "order": 4,
+      "name": "Generate_RLS",
+      "type": "Code",
+      "purpose": "Generate RLS policies for tables with tenant_id",
+      "doc_file": "04_Generate_RLS.md"
+    },
+    {
+      "order": 5,
+      "name": "Apply_Migration",
+      "type": "Postgres",
+      "purpose": "Execute SQL against Supabase",
+      "doc_file": "05_Apply_Migration.md"
+    },
+    {
+      "order": 6,
+      "name": "Record_Migration",
+      "type": "Postgres",
+      "purpose": "Insert row into schema_migrations",
+      "doc_file": "06_Record_Migration.md"
+    },
+    {
+      "order": 7,
+      "name": "Respond_Result",
+      "type": "RespondToWebhook",
+      "purpose": "Return migration result with rls_tables metadata",
+      "doc_file": "07_Respond_Result.md"
+    }
+  ]
+}

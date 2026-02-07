@@ -1,0 +1,19 @@
+{
+  "wf_id": "WF016",
+  "wf_slug": "inbound-call-router",
+  "wf_title": "Inbound Call Router",
+  "wf_summary": "Routes inbound Twilio calls into orchestration",
+  "nodes": [
+    {"order": 1, "name": "Webhook_InboundCall", "type": "Webhook", "purpose": "Entry point for Twilio inbound call"},
+    {"order": 2, "name": "Validate_Envelope", "type": "Code", "purpose": "Validate required fields from Twilio payload"},
+    {"order": 3, "name": "Resolve_Identity", "type": "ExecuteWorkflow", "purpose": "Call WF109 to resolve phone to lead_id"},
+    {"order": 4, "name": "Create_CallSession", "type": "Postgres", "purpose": "Insert call_session row in database"},
+    {"order": 5, "name": "Log_Event", "type": "ExecuteWorkflow", "purpose": "Call WF011 to log call.inbound event"},
+    {"order": 6, "name": "Respond_TwiML", "type": "RespondToWebhook", "purpose": "Return TwiML response to Twilio"}
+  ],
+  "dependencies": {
+    "db_tables": ["call_sessions", "leads"],
+    "other_wfs": ["WF011", "WF109"],
+    "external": ["twilio", "supabase"]
+  }
+}

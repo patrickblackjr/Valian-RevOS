@@ -1,0 +1,23 @@
+{
+  "wf_id": "WF103",
+  "wf_slug": "github-auto-export",
+  "wf_title": "GitHub Auto-Export",
+  "wf_summary": "Auto-exports n8n workflows to GitHub every 15 minutes with content change detection and Layout C scorecard alerts",
+  "version": "0.1.0",
+  "status": "Draft",
+  "owner": "Builder",
+  "created_at": "2026-02-07T08:58:07.247Z",
+  "node_count": 8,
+  "dependencies": {
+    "db_tables": [],
+    "other_wfs": [
+      "WF011"
+    ],
+    "external": [
+      "github",
+      "n8n-api",
+      "slack"
+    ]
+  },
+  "has_tests": true
+}

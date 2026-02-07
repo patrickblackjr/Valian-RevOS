@@ -1,0 +1,50 @@
+{
+  "wf_id": "WF016",
+  "wf_title": "Inbound Call Router",
+  "generated_at": "2026-02-07T08:56:51.738Z",
+  "node_count": 6,
+  "nodes": [
+    {
+      "order": 1,
+      "name": "Webhook_InboundCall",
+      "type": "Webhook",
+      "purpose": "Entry point for Twilio inbound call",
+      "doc_file": "01_Webhook_InboundCall.md"
+    },
+    {
+      "order": 2,
+      "name": "Validate_Envelope",
+      "type": "Code",
+      "purpose": "Validate required fields from Twilio payload",
+      "doc_file": "02_Validate_Envelope.md"
+    },
+    {
+      "order": 3,
+      "name": "Resolve_Identity",
+      "type": "ExecuteWorkflow",
+      "purpose": "Call WF109 to resolve phone to lead_id",
+      "doc_file": "03_Resolve_Identity.md"
+    },
+    {
+      "order": 4,
+      "name": "Create_CallSession",
+      "type": "Postgres",
+      "purpose": "Insert call_session row in database",
+      "doc_file": "04_Create_CallSession.md"
+    },
+    {
+      "order": 5,
+      "name": "Log_Event",
+      "type": "ExecuteWorkflow",
+      "purpose": "Call WF011 to log call.inbound event",
+      "doc_file": "05_Log_Event.md"
+    },
+    {
+      "order": 6,
+      "name": "Respond_TwiML",
+      "type": "RespondToWebhook",
+      "purpose": "Return TwiML response to Twilio",
+      "doc_file": "06_Respond_TwiML.md"
+    }
+  ]
+}

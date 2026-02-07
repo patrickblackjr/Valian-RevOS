@@ -1,0 +1,71 @@
+{
+  "wf_id": "WF011",
+  "wf_title": "Event Logger",
+  "generated_at": "2026-02-07T08:58:07.163Z",
+  "node_count": 9,
+  "nodes": [
+    {
+      "order": 1,
+      "name": "Webhook_Trigger",
+      "type": "Webhook",
+      "purpose": "Receive event logging requests",
+      "doc_file": "01_Webhook_Trigger.md"
+    },
+    {
+      "order": 2,
+      "name": "Validate_Payload",
+      "type": "Code",
+      "purpose": "Validate required event fields",
+      "doc_file": "02_Validate_Payload.md"
+    },
+    {
+      "order": 3,
+      "name": "Hash_PII",
+      "type": "Code",
+      "purpose": "Hash T3 PII fields for subject_ref pointers",
+      "doc_file": "03_Hash_PII.md"
+    },
+    {
+      "order": 4,
+      "name": "Check_Idempotency",
+      "type": "Postgres",
+      "purpose": "Check idempotency key to prevent duplicates",
+      "doc_file": "04_Check_Idempotency.md"
+    },
+    {
+      "order": 5,
+      "name": "IF_Duplicate",
+      "type": "IF",
+      "purpose": "Branch on whether event already exists",
+      "doc_file": "05_IF_Duplicate.md"
+    },
+    {
+      "order": 6,
+      "name": "Insert_Event",
+      "type": "Postgres",
+      "purpose": "Write event to events table",
+      "doc_file": "06_Insert_Event.md"
+    },
+    {
+      "order": 7,
+      "name": "Insert_Metadata",
+      "type": "Postgres",
+      "purpose": "Write event metadata to event_metadata table",
+      "doc_file": "07_Insert_Metadata.md"
+    },
+    {
+      "order": 8,
+      "name": "Send_Alert",
+      "type": "HTTPRequest",
+      "purpose": "Send Slack alert for critical events",
+      "doc_file": "08_Send_Alert.md"
+    },
+    {
+      "order": 9,
+      "name": "Respond_Success",
+      "type": "RespondToWebhook",
+      "purpose": "Return event ID and status",
+      "doc_file": "09_Respond_Success.md"
+    }
+  ]
+}

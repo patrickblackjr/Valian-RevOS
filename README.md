@@ -6,78 +6,136 @@
 
 ## Overview
 
-RevOS is a multi-tenant Revenue Operating System that automates front-office operations for dental practices. This repository serves as the **source of truth** for all:
-
-- n8n Workflow definitions (auto-exported via WF103)
-- Database schemas and migrations
-- System documentation
+RevOS is a multi-tenant Revenue Operating System that automates front-office operations for dental practices. This monorepo is the **source of truth** for all workflows, schemas, documentation, and tooling.
 
 ## Repository Structure
 
 ```
-Valian-RevOS/
-├── workflows/           # n8n workflow JSON definitions
-│   ├── WF103_*.json    # GitHub Auto-Export workflow
-│   ├── WF106_*.json    # Schema Builder workflow
-│   └── WF###_*.json    # All other workflows (auto-exported)
-├── database/
-│   ├── blueprints/     # Schema blueprints (input to WF106)
-│   └── migrations/     # Applied migration SQL scripts
-├── docs/               # System documentation
-└── CLAUDE.md          # AI assistant context & system specs
+valian/
+  README.md                     # This file
+  CLAUDE.md                     # AI assistant context & system specs
+  CHANGELOG.md                  # All changes tracked here
+
+  docs/
+    00_start-here/              # Setup, overview, how-we-work
+    01_product/                 # Vision, roadmap, pricing, ICP, GTM
+    02_architecture/            # System context, data flows, decisions
+    03_runbooks/                # Incident response, deploy, rollback
+    04_specs/                   # WF catalog, event schema, naming standards
+    05_archive/                 # Historical build docs (Day 1 artifacts)
+
+  workflows/                    # One folder per WF (first-class artifacts)
+    WF011_event-logger/         # Immutable event ledger
+    WF016_inbound-call-router/  # Twilio inbound call handling
+    WF042_slack-bot/            # Slack command handler + AI chat
+    WF103_github-auto-export/   # Auto-exports n8n workflows to GitHub
+    WF106_schema-auto-builder/  # Deploys DB tables via JSON blueprints
+    WF201_build-digest/         # 12h task summary to Slack
+
+  supabase/                     # Database schema, migrations, functions
+    migrations/                 # SQL files: YYYYMMDD_NNNN_<slug>.sql
+    functions/                  # PL/pgSQL functions
+    policies/                   # RLS policies
+    seed/                       # Seed data and blueprints
+
+  services/                     # Code services (API, worker, web) — grows over time
+  integrations/                 # Integration contracts (Twilio, Slack, OpenAI)
+  scripts/                      # Dev/ops scripts (scaffold, lint, export, deploy)
+  .github/                      # Issue/PR templates, CI workflows
 ```
 
-## Core Infrastructure Workflows
+## Workflow Folder Template
 
-| Workflow | Purpose | Status |
-|----------|---------|--------|
-| **WF103** | Auto-exports all WF### workflows to GitHub every 15 min | Active |
-| **WF106** | Schema builder - deploys database tables via JSON blueprints | Active |
-| **WF011** | Event logger - immutable audit trail | Planned |
+Every workflow follows this structure:
 
-## How It Works
+```
+workflows/WF###_<slug>/
+  README.md                     # Purpose, inputs, outputs, failure modes
+  changelog.md                  # Version history
+  wf.meta.json                  # Machine-readable metadata
 
-### WF103: GitHub Auto-Export
-- Runs every 15 minutes via cron
-- Lists all workflows in n8n matching `WF###` pattern
-- Exports each workflow JSON to this repo
-- Commits changes automatically
+  n8n/
+    WF###.json                  # Canonical n8n export (only place for exports!)
 
-### WF106: Schema Auto-Builder
-- Receives JSON schema blueprints via webhook
-- Validates input, checks idempotency
-- Generates SQL with RLS policies
-- Deploys to Supabase with transaction safety
-- Logs migration to `schema_migrations` table
+  nodes/
+    00_map.md                   # Node list + routing map
+    node_index.json             # Machine-readable node index
+    01_<NodeName>.md            # Per-node documentation
+
+  tests/
+    sample_payloads/
+      happy_path.json           # Required: successful execution input
+    expected_outputs/
+      happy_path.json           # Required: expected output
+    notes.md                    # Test assumptions + replay instructions
+```
 
 ## Quick Start
 
-### Deploy a Schema
+### Scaffold a New Workflow
+
 ```bash
-curl -X POST https://valiansystems.app.n8n.cloud/webhook/wf106/schema-builder \
-  -H "Content-Type: application/json" \
-  -d @database/blueprints/001_foundation_schema.json
+node scripts/wf_scaffold.js --input scripts/wf_spec_example.json
 ```
 
-### Trigger Manual Export
+### Validate Repository Structure
+
 ```bash
-# WF103 runs automatically, but can be triggered manually in n8n
+node scripts/repo_validate.js
 ```
+
+### Scan for Secrets
+
+```bash
+node scripts/secret_scan.js
+```
+
+### Normalize an n8n Export
+
+```bash
+node scripts/wf_export_normalize.js --input-file /path/to/export.json
+```
+
+## Core Workflows
+
+| Workflow | Purpose | Status |
+|----------|---------|--------|
+| **WF011** | Event Logger — immutable audit trail for all system actions | Active |
+| **WF042** | Slack Bot — command handler with RBAC, AI chat, tool routing | Active |
+| **WF103** | GitHub Auto-Export — syncs n8n workflows to repo every 15 min | Active |
+| **WF106** | Schema Auto-Builder — deploys DB tables via JSON blueprints | Active |
+| **WF201** | Build Digest — 12-hour task summary sent to Slack | Active |
+
+## Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/wf_scaffold.js` | Generate a new WF folder from a JSON spec |
+| `scripts/wf_export_normalize.js` | Canonicalize, redact secrets, and route n8n exports |
+| `scripts/repo_validate.js` | Lint repo structure against the authoritative spec |
+| `scripts/secret_scan.js` | Scan for leaked API keys, tokens, and passwords |
 
 ## Tech Stack
 
 - **Workflow Engine:** n8n Cloud (valiansystems.app.n8n.cloud)
 - **Database:** Supabase (PostgreSQL with RLS)
+- **Voice/Calls:** TBD (Vapi/Bland/Retell/ElevenLabs)
+- **SMS:** Twilio
+- **Alerts:** Slack
 - **Version Control:** GitHub (this repo)
-- **AI Integration:** Claude Code + MCP Server
+- **AI:** Claude Code + MCP Servers
 
-## Naming Conventions
+## Conventions
 
-- Workflows: `WF###_Name_Here.json` (e.g., `WF106_Schema_Builder.json`)
-- Schema versions: Sequential 3-digit numbers (`001`, `002`, `003`)
-- Tables: snake_case with multi-tenant columns (`tenant_id`, `created_at`, etc.)
+- **Branches:** `wf###-<slug>` or `db-NNNN-<slug>`
+- **Commits:** `WF###: <description>` or `Supabase: <description>`
+- **Issues:** `WF###: <short goal>`
+- **Exports:** Only in `workflows/WF###_<slug>/n8n/WF###.json`
+- **No secrets in repo** — enforced by CI on every PR
+
+See [docs/04_specs/naming-standards.md](docs/04_specs/naming-standards.md) for full conventions.
 
 ---
 
-**Last Updated:** 2026-02-05
+**Last Updated:** 2026-02-07
 **System Version:** Day 1 MVP
